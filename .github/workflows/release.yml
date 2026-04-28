@@ -75,7 +75,6 @@ jobs:
         run: |
           $zip = "WebCraft-CG-v$env:VERSION.zip"
           $files = @(
-            '.gitignore',
             'README.md',
             'manifest.json',
             'background.js',
