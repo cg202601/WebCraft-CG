@@ -14,15 +14,23 @@ const DEFAULTS = {
   recordingShowBorder: true,
   recordingMaxMinutes: 30,
   recordingMaxSizeMB: 500,
+  collectorOpenOnAdd: true,
+  collectorPageSaveEnabled: true,
+  collectorShowImageFilter: true,
+  collectorShowTextFilter: true,
+  collectorShowPageFilter: true,
+  collectorShowLinkFilter: true,
   screenshotFilenameTemplate: '截图凭证-{tool}-{name}-{date}',
   youtubeThumbnailFilenameTemplate: '{channel}-{title}-{date}',
   youtubeHideShorts: false,
   youtubeHideLive: false,
   youtubeHideAds: false,
+  hideYoutubeTranslate: false,
   youtubeBlacklist: ''
 };
 
 const SETTING_KEYS = Object.keys(DEFAULTS);
+const BUILT_IN_TOOLS = ['Midjourney生成', 'Firefly生成', '购买Gemini生成', 'Flow Ultra版', 'Flow Pro版'];
 
 document.addEventListener('DOMContentLoaded', () => {
   const manifest = chrome.runtime.getManifest();
@@ -43,11 +51,26 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistory(settings.translationHistory || []);
   });
 
+  chrome.storage.local.get(['customTools'], (result) => {
+    const customToolsText = document.getElementById('customToolsText');
+    if (customToolsText) customToolsText.value = (result.customTools || []).join('\n');
+  });
+
   document.querySelectorAll('[data-setting]').forEach(control => {
     control.addEventListener('change', () => saveControl(control));
     if (control.tagName === 'TEXTAREA') {
       control.addEventListener('input', () => saveControl(control));
     }
+  });
+
+  const customToolsText = document.getElementById('customToolsText');
+  customToolsText?.addEventListener('input', () => {
+    const customTools = customToolsText.value
+      .split(/\r?\n/)
+      .map(item => item.trim())
+      .filter(Boolean)
+      .filter((item, index, array) => array.indexOf(item) === index && !BUILT_IN_TOOLS.includes(item));
+    chrome.storage.local.set({ customTools });
   });
 
   document.getElementById('savePhrases').addEventListener('click', () => {
@@ -109,7 +132,7 @@ function notifyTabs(key, value) {
     });
   }
 
-  if (['youtubeToolsEnabled', 'youtubeHideShorts', 'youtubeHideLive', 'youtubeHideAds', 'youtubeThumbnailFilenameTemplate', 'youtubeBlacklist'].includes(key)) {
+  if (['youtubeToolsEnabled', 'youtubeHideShorts', 'youtubeHideLive', 'youtubeHideAds', 'hideYoutubeTranslate', 'youtubeThumbnailFilenameTemplate', 'youtubeBlacklist'].includes(key)) {
     chrome.tabs.query({ url: '*://*.youtube.com/*' }, (tabs) => {
       tabs.forEach(tab => {
         chrome.tabs.sendMessage(tab.id, {

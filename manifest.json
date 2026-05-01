@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "WebCraft 网页工坊",
-    "version": "1.6.7",
+    "version": "1.7.1",
     "description": "网页采集、截图整理、翻译、录屏和 YouTube 辅助工具台",
     "permissions": [
         "activeTab",

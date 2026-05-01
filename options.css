@@ -103,6 +103,13 @@ p {
   font-size: 14px;
 }
 
+.help-text {
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: -6px 0 16px;
+}
+
 .settings-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(260px, 1fr));

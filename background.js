@@ -271,6 +271,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
                 if (chrome.runtime.lastError) {
                     console.error("Capture Error:", chrome.runtime.lastError);
+                    sendResponse({ success: false, error: chrome.runtime.lastError.message });
                     return;
                 }
 
@@ -282,7 +283,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         chrome.tabs.sendMessage(tabs[0].id, {
                             action: 'processImage',
                             payload: { image: dataUrl, name, format, tool }
+                        }, (response) => {
+                            if (chrome.runtime.lastError) {
+                                sendResponse({ success: false, error: chrome.runtime.lastError.message });
+                                return;
+                            }
+                            sendResponse(response || { success: true });
                         });
+                    } else {
+                        sendResponse({ success: false, error: '没有找到当前标签页' });
                     }
                 });
             });
@@ -566,13 +575,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 // 将 streamId 发送给 content script，由它来创建实际的媒体流
                 chrome.tabs.sendMessage(tabId, {
                     action: 'initRegionRecording',
-                    payload: { streamId }
+                    payload: { streamId, ...(request.payload || {}) }
                 }, (response) => {
                     if (chrome.runtime.lastError) {
                         console.error('[屏幕录制] 发送 streamId 失败:', chrome.runtime.lastError);
                         sendResponse({ success: false, error: chrome.runtime.lastError.message });
                     } else {
-                        sendResponse({ success: true });
+                        sendResponse(response || { success: true });
                     }
                 });
             });

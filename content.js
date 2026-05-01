@@ -1,7 +1,6 @@
 /**
  * WebCraft 网页工坊 - Content Script
- * 网页采集、截图、翻译、YouTube 辅助和录屏功能
- */
+ * 网页采集、截图、翻译、YouTube 辅助和录屏功能 */
 
 // ==================== 截图功能 ====================
 
@@ -25,9 +24,14 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     }
 });
 
-function sanitizeFilenamePart(value, fallback = '未命名') {
+function sanitizeFilenamePart(value, fallback = 'untitled') {
     const text = String(value || '').replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, ' ').trim();
     return (text || fallback).slice(0, 120);
+}
+
+function isYouTubeHost(hostname = window.location.hostname) {
+    const host = String(hostname || '').toLowerCase();
+    return host === 'youtube.com' || host.endsWith('.youtube.com');
 }
 
 function generateFilename(name, ext, tool) {
@@ -125,29 +129,29 @@ function downloadCanvas(canvas, filename, format) {
 
 /**
  * 检测页面顶部的固定/粘性元素的高度
- * 用于在长截图拼接时去除重复的顶部导航栏
+ * 用于在长截图拼接时去除重复的顶部导航�?
  * 增强版：支持 SPA 应用（如 Gemini）使用内部容器滚动的情况
  */
 function findFixedHeaderHeight(scrollContainer = null) {
     const viewportHeight = window.innerHeight;
-    // 限制固定头部最大高度为视口的 20%
+    // 限制固定头部最大高度为视口�?20%
     const maxAllowedHeight = viewportHeight * 0.2;
 
     let maxHeaderBottom = 0;
     let foundElements = 0;
 
-    // 方法1: 检查所有具有 fixed/sticky 定位的元素
+    // 方法1: 检查所有具�?fixed/sticky 定位的元�?
     document.querySelectorAll('*').forEach(el => {
         const style = window.getComputedStyle(el);
         const position = style.position;
 
         if (position === 'fixed' || position === 'sticky') {
             const rect = el.getBoundingClientRect();
-            // 只考虑在视口顶部的元素，且高度合理（不超过视口 20%）
+            // 只考虑在视口顶部的元素，且高度合理（不超过视口 20%�?
             if (rect.top >= -5 && rect.top <= 10 &&
                 rect.height > 20 &&
                 rect.height < viewportHeight * 0.2 &&
-                rect.width > viewportHeight * 0.5) { // 确保是宽度较大的导航栏
+                rect.width > viewportHeight * 0.5) { // 确保是宽度较大的导航�?
                 foundElements++;
                 if (rect.bottom > maxHeaderBottom && rect.bottom < maxAllowedHeight) {
                     maxHeaderBottom = rect.bottom;
@@ -160,33 +164,33 @@ function findFixedHeaderHeight(scrollContainer = null) {
     // 因为容器上方的内容在滚动时会保持固定
     if (scrollContainer) {
         const containerRect = scrollContainer.getBoundingClientRect();
-        // 如果容器不是从顶部开始，说明上方有固定区域
+        // 如果容器不是从顶部开始，说明上方有固定区�?
         if (containerRect.top > 20 && containerRect.top < maxAllowedHeight) {
             console.log('[长截图] 检测到内部容器顶部偏移:', containerRect.top, 'px');
-            // 使用容器顶部位置和 fixed 元素底部的较大值
+            // 使用容器顶部位置�?fixed 元素底部的较大�?
             maxHeaderBottom = Math.max(maxHeaderBottom, containerRect.top);
             foundElements++;
         }
     }
 
-    // 确保返回值在合理范围内
+    // 纭繚杩斿洖鍊煎湪鍚堢悊鑼冨洿鍐?
     const result = Math.min(Math.ceil(maxHeaderBottom), maxAllowedHeight);
     console.log('[长截图] 检测到固定头部:', result, 'px (检测到', foundElements, '个元素)');
     return result;
 }
 
 /**
- * 检测页面底部的固定元素的高度
- * 用于处理 Gemini 等页面底部有固定输入区域的情况
+ * 检测页面底部的固定元素的高�?
+ * 用于处理 Gemini 等页面底部有固定输入区域的情�?
  */
 function findFixedFooterHeight(scrollContainer = null) {
     const viewportHeight = window.innerHeight;
-    // 限制固定底部最大高度为视口的 25%
+    // 限制固定底部最大高度为视口�?25%
     const maxAllowedHeight = viewportHeight * 0.25;
 
     let maxFooterHeight = 0;
 
-    // 检查所有具有 fixed/sticky 定位的元素
+    // 检查所有具�?fixed/sticky 定位的元�?
     document.querySelectorAll('*').forEach(el => {
         const style = window.getComputedStyle(el);
         const position = style.position;
@@ -207,7 +211,7 @@ function findFixedFooterHeight(scrollContainer = null) {
         }
     });
 
-    // 如果使用内部容器滚动，检测容器底部偏移
+    // 如果使用内部容器滚动，检测容器底部偏�?
     if (scrollContainer) {
         const containerRect = scrollContainer.getBoundingClientRect();
         const bottomOffset = viewportHeight - containerRect.bottom;
@@ -227,10 +231,10 @@ let captureStopRequested = false;
 let captureControlPanel = null;
 
 /**
- * 创建悬浮控制面板
+ * 鍒涘缓鎮诞鎺у埗闈㈡澘
  */
 function createCaptureControlPanel() {
-    // 移除已有的面板
+    // 移除已有的面�?
     removeCaptureControlPanel();
 
     const panel = document.createElement('div');
@@ -253,14 +257,14 @@ function createCaptureControlPanel() {
         max-width: calc(100vw - 24px);
     `;
 
-    // 状态显示
+    // 鐘舵€佹樉绀?
     const statusDiv = document.createElement('div');
     statusDiv.id = 'capture-status';
     statusDiv.style.cssText = 'font-size: 12px; font-weight: 600; white-space: nowrap;';
     statusDiv.textContent = '📸 截图中';
     panel.appendChild(statusDiv);
 
-    // 进度显示
+    // 杩涘害鏄剧ず
     const progressDiv = document.createElement('div');
     progressDiv.id = 'capture-progress';
     progressDiv.style.cssText = 'font-size: 12px; color: #bbb; white-space: nowrap;';
@@ -285,7 +289,7 @@ function createCaptureControlPanel() {
     stopBtn.onmouseout = () => stopBtn.style.transform = 'scale(1)';
     stopBtn.onclick = () => {
         captureStopRequested = true;
-        stopBtn.textContent = '停止中';
+        stopBtn.textContent = '停止截图';
         stopBtn.style.background = '#666';
         stopBtn.disabled = true;
     };
@@ -298,7 +302,7 @@ function createCaptureControlPanel() {
 }
 
 /**
- * 更新控制面板状态
+ * 鏇存柊鎺у埗闈㈡澘鐘舵€?
  */
 function updateCaptureProgress(current, total) {
     const progressDiv = document.getElementById('capture-progress');
@@ -312,7 +316,7 @@ function updateCaptureProgress(current, total) {
 }
 
 /**
- * 移除控制面板
+ * 绉婚櫎鎺у埗闈㈡澘
  */
 function removeCaptureControlPanel() {
     const existing = document.getElementById('screenshot-control-panel');
@@ -323,19 +327,19 @@ function removeCaptureControlPanel() {
 }
 
 /**
- * 查找页面中实际的可滚动容器
- * 用于处理 SPA 应用（如 Gemini）使用 overflow:hidden 在 html/body，
- * 而实际滚动区域在内部容器的情况
+ * 查找页面中实际的可滚动容�?
+ * 用于处理 SPA 应用（如 Gemini）使�?overflow:hidden �?html/body�?
+ * 而实际滚动区域在内部容器的情�?
  */
 function findScrollableContainer() {
     const viewportHeight = window.innerHeight;
 
-    // 首先检查 window 是否可滚动
+    // 首先检�?window 是否可滚�?
     const windowScrollable = document.documentElement.scrollHeight > viewportHeight ||
         document.body.scrollHeight > viewportHeight;
 
     if (windowScrollable && window.scrollY !== undefined) {
-        // 尝试滚动一下看看是否真的可以滚动
+        // 尝试滚动一下看看是否真的可以滚�?
         const testScroll = window.scrollY;
         window.scrollTo(0, 100);
         const canScroll = window.scrollY > 0 || testScroll > 0;
@@ -343,19 +347,19 @@ function findScrollableContainer() {
 
         if (canScroll || document.documentElement.scrollHeight > viewportHeight + 50) {
             console.log('[长截图] 使用 window 滚动');
-            return null; // 使用 window 滚动
+            return null; // 浣跨敤 window 婊氬姩
         }
     }
 
-    // 查找页面中的可滚动容器
-    // 常见的选择器用于 SPA 应用
+    // 查找页面中的可滚动容�?
+    // 常见的选择器用�?SPA 应用
     const candidateSelectors = [
-        // Gemini 特定选择器
+        // Gemini 特定选择�?
         'main[class*="scroll"]',
         '[class*="chat-container"]',
         '[class*="message-container"]',
         '[class*="conversation"]',
-        // 通用选择器
+        // 通用选择�?
         '[style*="overflow: auto"]',
         '[style*="overflow-y: auto"]',
         '[style*="overflow: scroll"]',
@@ -367,22 +371,22 @@ function findScrollableContainer() {
         '[class*="content"]'
     ];
 
-    // 首先尝试特定选择器
+    // 首先尝试特定选择�?
     for (const selector of candidateSelectors) {
         try {
             const elements = document.querySelectorAll(selector);
             for (const el of elements) {
                 if (isScrollableElement(el, viewportHeight)) {
-                    console.log('[长截图] 找到可滚动容器 (通过选择器):', selector, el);
+                    console.log('[长截图] 找到可滚动容器(通过选择器):', selector, el);
                     return el;
                 }
             }
         } catch (e) {
-            // 忽略无效选择器
+            // 忽略无效选择�?
         }
     }
 
-    // 如果没找到，遍历所有元素查找可滚动的容器
+    // 如果没找到，遍历所有元素查找可滚动的容�?
     const allElements = document.querySelectorAll('*');
     let bestCandidate = null;
     let maxScrollHeight = 0;
@@ -399,7 +403,7 @@ function findScrollableContainer() {
     }
 
     if (bestCandidate) {
-        console.log('[长截图] 找到可滚动容器 (通过遍历):', bestCandidate.tagName, bestCandidate.className);
+        console.log('[长截图] 找到可滚动容器(通过遍历):', bestCandidate.tagName, bestCandidate.className);
         return bestCandidate;
     }
 
@@ -408,7 +412,7 @@ function findScrollableContainer() {
 }
 
 /**
- * 检查元素是否为可滚动元素
+ * 检查元素是否为可滚动元�?
  */
 function isScrollableElement(el, viewportHeight) {
     if (!el || el === document.body || el === document.documentElement) return false;
@@ -421,10 +425,10 @@ function isScrollableElement(el, viewportHeight) {
     const hasScrollStyle = overflowY === 'auto' || overflowY === 'scroll' ||
         overflowX === 'auto' || overflowX === 'scroll';
 
-    // 检查是否有足够的滚动内容
+    // 检查是否有足够的滚动内�?
     const hasScrollableContent = el.scrollHeight > el.clientHeight + 50;
 
-    // 检查元素是否足够大（至少占视口的 50%）
+    // 检查元素是否足够大（至少占视口�?50%�?
     const rect = el.getBoundingClientRect();
     const isLargeEnough = rect.height > viewportHeight * 0.5;
 
@@ -436,18 +440,18 @@ async function doFullPageCapture(name, format, tool, options = {}) {
 
     console.log('[长截图] 开始执行长截图...', { manualMode, startFromCurrent });
 
-    // 获取设备像素比 - 关键修复：所有像素计算都需要考虑 DPR
+    // 获取设备像素�?- 关键修复：所有像素计算都需要考虑 DPR
     const dpr = window.devicePixelRatio || 1;
     console.log('[长截图] 设备像素比:', dpr);
 
     const body = document.body;
     const html = document.documentElement;
 
-    // 禁用平滑滚动
+    // 绂佺敤骞虫粦婊氬姩
     const originalScrollBehavior = document.documentElement.style.scrollBehavior;
     document.documentElement.style.scrollBehavior = 'auto';
 
-    // 查找可滚动容器
+    // 查找可滚动容�?
     const scrollContainer = findScrollableContainer();
     const useContainerScroll = scrollContainer !== null;
 
@@ -455,10 +459,10 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         scrollContainer.style.scrollBehavior = 'auto';
     }
 
-    // 保存原始滚动位置
+    // 淇濆瓨鍘熷婊氬姩浣嶇疆
     const originalScrollTop = useContainerScroll ? scrollContainer.scrollTop : window.scrollY;
 
-    // 滚动函数（支持容器和 window）
+    // 滚动函数（支持容器和 window�?
     function scrollTo(position) {
         if (useContainerScroll) {
             scrollContainer.scrollTop = position;
@@ -494,15 +498,15 @@ async function doFullPageCapture(name, format, tool, options = {}) {
     // 实际像素视口高度（用于图片裁剪）
     const viewportHeightPx = Math.round(viewportHeightCSS * dpr);
 
-    // 视口宽度 - 实际尺寸将从第一张截图获取
+    // 视口宽度 - 实际尺寸将从第一张截图获�?
     let actualImageWidth = Math.round(window.innerWidth * dpr);
     let actualImageHeight = viewportHeightPx;
 
-    // 确定起始位置
+    // 纭畾璧峰浣嶇疆
     let startScrollPosition;
 
     if (startFromCurrent) {
-        // 指定位置模式：从当前位置开始
+        // 指定位置模式：从当前位置开�?
         startScrollPosition = getCurrentScroll();
         console.log('[长截图] 从当前位置开始:', startScrollPosition);
     } else {
@@ -513,21 +517,21 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         console.log('[长截图] 从页面顶部开始');
     }
 
-    // 检测固定头部高度（传入滚动容器以支持 SPA 应用）- CSS 像素
+    // 检测固定头部高度（传入滚动容器以支�?SPA 应用�? CSS 像素
     const fixedHeaderHeightCSS = findFixedHeaderHeight(scrollContainer);
     console.log('[长截图] 固定头部高度:', fixedHeaderHeightCSS, 'px (CSS)');
 
-    // 检测固定底部高度（如 Gemini 的输入区域）- CSS 像素
+    // 检测固定底部高度（�?Gemini 的输入区域）- CSS 像素
     const fixedFooterHeightCSS = findFixedFooterHeight(scrollContainer);
     console.log('[长截图] 固定底部高度:', fixedFooterHeightCSS, 'px (CSS)');
 
-    // 计算每次滚动的步长（CSS 像素）
+    // 计算每次滚动的步长（CSS 像素�?
     // 关键修复：使用更保守的重叠区域，确保不会遗漏内容
     const safetyOverlapCSS = Math.max(30, Math.round(viewportHeightCSS * 0.05));
     const scrollStepCSS = viewportHeightCSS - fixedHeaderHeightCSS - fixedFooterHeightCSS - safetyOverlapCSS;
     console.log('[长截图] 滚动步长:', scrollStepCSS, 'px (安全重叠:', safetyOverlapCSS, 'px)');
 
-    // 确保滚动步长合理（至少为视口的 40%）
+    // 确保滚动步长合理（至少为视口�?40%�?
     if (scrollStepCSS < viewportHeightCSS * 0.4) {
         console.warn('[长截图] 滚动步长过小，可能检测到的固定区域不正确');
     }
@@ -535,10 +539,10 @@ async function doFullPageCapture(name, format, tool, options = {}) {
     // 重置停止标志
     captureStopRequested = false;
 
-    // 显示控制面板
+    // 鏄剧ず鎺у埗闈㈡澘
     createCaptureControlPanel();
 
-    // 触发懒加载
+    // 触发懒加�?
     function triggerLazyLoad() {
         window.dispatchEvent(new Event('scroll'));
         if (useContainerScroll) {
@@ -554,16 +558,16 @@ async function doFullPageCapture(name, format, tool, options = {}) {
     let captureIndex = 0;
     let prevScrollPositionCSS = startScrollPosition;
 
-    // 开始截图循环
+    // 开始截图循�?
     try {
         while (true) {
-            // 检查停止条件
+            // 检查停止条�?
             if (captureStopRequested) {
                 console.log('[长截图] 用户请求停止');
                 break;
             }
 
-            // 检查是否到达底部
+            // 检查是否到达底�?
             const maxScrollCSS = getMaxScroll();
             const actualScrollCSS = getCurrentScroll();
 
@@ -574,18 +578,18 @@ async function doFullPageCapture(name, format, tool, options = {}) {
 
             captureIndex++;
             updateCaptureProgress(captureIndex, null);
-            console.log(`[长截图] 截取第 ${captureIndex} 张, 位置: ${currentScrollCSS}`);
+            console.log(`[长截图] 截取第 ${captureIndex} 张，位置: ${currentScrollCSS}`);
 
-            // 滚动到目标位置
+            // 滚动到目标位�?
             scrollTo(currentScrollCSS);
             triggerLazyLoad();
             // 等待足够的时间让页面渲染完成
             await wait(500);
 
-            // 再等待一下确保渲染完成
+            // 再等待一下确保渲染完�?
             await wait(150);
 
-            // 记录实际滚动位置（可能与请求位置不同）
+            // 记录实际滚动位置（可能与请求位置不同�?
             const realScrollCSS = getCurrentScroll();
 
             // 只隐藏我们的控制面板
@@ -608,7 +612,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
                 }
             }
 
-            // 恢复控制面板显示
+            // 鎭㈠鎺у埗闈㈡澘鏄剧ず
             if (captureControlPanel) {
                 captureControlPanel.style.display = 'flex';
             }
@@ -618,7 +622,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
                 throw new Error('截图失败 - 请刷新页面重试');
             }
 
-            // 从第一张截图获取实际尺寸
+            // 从第一张截图获取实际尺�?
             if (captureIndex === 1) {
                 const tempImg = new Image();
                 await new Promise((resolve) => {
@@ -633,7 +637,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
                 });
             }
 
-            // 关键修复：记录精确的滚动位置差值用于拼接计算
+            // 关键修复：记录精确的滚动位置差值用于拼接计�?
             const scrollDeltaCSS = captureIndex === 1 ? 0 : (realScrollCSS - prevScrollPositionCSS);
 
             captures.push({
@@ -641,15 +645,15 @@ async function doFullPageCapture(name, format, tool, options = {}) {
                 scrollPositionCSS: realScrollCSS,
                 scrollDeltaCSS: scrollDeltaCSS,
                 isFirst: captureIndex === 1,
-                isLast: false // 稍后更新
+                isLast: false // 绋嶅悗鏇存柊
             });
 
             prevScrollPositionCSS = realScrollCSS;
 
-            // 移动到下一个位置
+            // 移动到下一个位�?
             currentScrollCSS += scrollStepCSS;
 
-            // 检查是否已到底部
+            // 检查是否已到底�?
             const newActualScrollCSS = getCurrentScroll();
             if (newActualScrollCSS >= maxScrollCSS - 5) {
                 console.log('[长截图] 已到达页面底部，结束截图');
@@ -657,12 +661,12 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             }
         }
 
-        // 标记最后一张
+        // 标记最后一�?
         if (captures.length > 0) {
             captures[captures.length - 1].isLast = true;
         }
 
-        // 移除控制面板
+        // 绉婚櫎鎺у埗闈㈡澘
         removeCaptureControlPanel();
 
         if (captures.length === 0) {
@@ -672,18 +676,18 @@ async function doFullPageCapture(name, format, tool, options = {}) {
 
         console.log(`[长截图] 截取完成，共 ${captures.length} 张，开始拼接...`);
 
-        // 恢复滚动位置
+        // 鎭㈠婊氬姩浣嶇疆
         scrollTo(originalScrollTop);
         document.documentElement.style.scrollBehavior = originalScrollBehavior;
 
-        // ===== 拼接图片 - 关键修复：使用实际像素进行所有计算 =====
+        // ===== 拼接图片 - 关键修复：使用实际像素进行所有计�?=====
 
-        // 固定区域的实际像素高度
+        // 固定区域的实际像素高�?
         const fixedHeaderHeightPx = Math.round(fixedHeaderHeightCSS * dpr);
         const fixedFooterHeightPx = Math.round(fixedFooterHeightCSS * dpr);
         const safetyOverlapPx = Math.round(safetyOverlapCSS * dpr);
 
-        // 计算每张图片贡献的实际高度（像素）
+        // 计算每张图片贡献的实际高度（像素�?
         let totalStitchHeightPx = 0;
 
         for (let i = 0; i < captures.length; i++) {
@@ -695,15 +699,15 @@ async function doFullPageCapture(name, format, tool, options = {}) {
                 cap.sourceHeightPx = actualImageHeight - fixedFooterHeightPx;
                 cap.effectiveHeightPx = cap.sourceHeightPx;
             } else {
-                // 后续图片：基于实际滚动距离计算
+                // 后续图片：基于实际滚动距离计�?
                 // 从顶部裁剪掉固定头部 + 安全重叠区域
                 cap.sourceYPx = fixedHeaderHeightPx + safetyOverlapPx;
 
-                // 使用实际滚动的距离作为贡献高度
+                // 使用实际滚动的距离作为贡献高�?
                 const scrollDeltaPx = Math.round(cap.scrollDeltaCSS * dpr);
                 cap.effectiveHeightPx = scrollDeltaPx;
 
-                // 源区域高度 = 滚动距离（因为我们只需要新滚入的内容）
+                // 源区域高�?= 滚动距离（因为我们只需要新滚入的内容）
                 cap.sourceHeightPx = scrollDeltaPx;
             }
 
@@ -713,7 +717,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
 
         console.log('[长截图] 拼接总高度:', totalStitchHeightPx, 'px');
 
-        // 限制最大高度防止内存溢出
+        // 限制最大高度防止内存溢�?
         const maxCanvasHeight = 32000;
         const scale = totalStitchHeightPx > maxCanvasHeight ? maxCanvasHeight / totalStitchHeightPx : 1;
         const finalWidth = Math.floor(actualImageWidth * scale);
@@ -765,7 +769,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
                                 drawY += drawHeight;
                             }
 
-                            // 立即清理以释放内存
+                            // 绔嬪嵆娓呯悊浠ラ噴鏀惧唴瀛?
                             img.src = '';
                             resolve();
                         } catch (drawErr) {
@@ -780,7 +784,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
                 cap.src = null;
 
             } catch (imgErr) {
-                console.error(`[长截图] 处理第 ${i + 1} 张图片失败:`, imgErr);
+                console.error(`[长截图] 处理第${i + 1} 张图片失败`, imgErr);
                 // 继续处理其他图片
             }
         }
@@ -795,7 +799,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         const filename = generateFilename(name, format, tool);
         downloadCanvas(finalCanvas, filename, format);
 
-        console.log('[长截图] 完成！');
+        console.log('[长截图] 完成');
 
         // 成功提示
         const toast = document.createElement('div');
@@ -806,7 +810,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             font-family: -apple-system, sans-serif; font-size: 14px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         `;
-        toast.textContent = '✓ 长截图完成！';
+        toast.textContent = '✅ 长截图完成！';
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 2000);
 
@@ -824,17 +828,17 @@ async function doFullPageCapture(name, format, tool, options = {}) {
 (function initTranslator() {
     'use strict';
 
-    // 配置
+    // 閰嶇疆
     const SPACE_COUNT_THRESHOLD = 3;  // 需要连续按下的空格次数
-    const SPACE_TIMEOUT = 500;        // 空格检测超时时间(ms)
+    const SPACE_TIMEOUT = 500;        // 空格检测超时时�?ms)
 
-    // 状态变量
+    // 状态变�?
     let spaceCount = 0;
     let lastSpaceTime = 0;
     let isTranslating = false;
     const handledKeyEvents = new WeakSet();
 
-    // 设置缓存
+    // 璁剧疆缂撳瓨
     let isEnabled = true;
     let shortcutType = 'triple_space';
     let targetLang = 'auto';
@@ -842,7 +846,6 @@ async function doFullPageCapture(name, format, tool, options = {}) {
     const FLOATING_TRANSLATOR_PANEL_ID = 'webcraft-floating-translator-panel';
     const FLOATING_TRANSLATOR_HANDLE_ID = 'webcraft-floating-translator-handle';
 
-    // 初始化设置
     chrome.storage.local.get(['translateEnabled', 'translateShortcut', 'translateTargetLang', 'translateSelectionOnly'], (res) => {
         if (res.translateEnabled !== undefined) isEnabled = res.translateEnabled;
         if (res.translateShortcut) shortcutType = res.translateShortcut;
@@ -850,7 +853,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         if (res.translateSelectionOnly !== undefined) translateSelectionOnly = res.translateSelectionOnly;
     });
 
-    // 监听设置变更消息
+    // 鐩戝惉璁剧疆鍙樻洿娑堟伅
     chrome.runtime.onMessage.addListener((req) => {
         if (req.action === 'updateTranslateSettings') {
             if (req.payload.enabled !== undefined) isEnabled = req.payload.enabled;
@@ -860,15 +863,15 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         }
     });
 
-    // 中文字符正则表达式
+    // 中文字符正则表达�?
     const CHINESE_REGEX = /[\u4e00-\u9fa5]+/;
     const CHINESE_MATCH_REGEX = /[\u4e00-\u9fa5]+/g;
-    // 英文字符正则表达式 (至少包含连续的英文单词)
+    // 英文字符正则表达�?(至少包含连续的英文单�?
     const ENGLISH_REGEX = /[a-zA-Z]{2,}/;
     const ENGLISH_MATCH_REGEX = /[a-zA-Z]{2,}/g;
 
     /**
-     * 检查文本是否包含中文
+     * 检查文本是否包含中�?
      */
     function containsChinese(text) {
         return CHINESE_REGEX.test(text);
@@ -904,7 +907,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
     /**
      * 使用 Google 翻译 API（快速模式）
      * @param {string} text - 要翻译的文本
-     * @param {string} direction - 翻译方向: 'zh2en' 或 'en2zh'
+     * @param {string} direction - 翻译方向: 'zh2en' �?'en2zh'
      */
     async function translateWithGoogle(text, direction = 'zh2en', target = 'auto') {
         const sl = target === 'auto' ? (direction === 'zh2en' ? 'zh-CN' : 'en') : 'auto';
@@ -932,9 +935,9 @@ async function doFullPageCapture(name, format, tool, options = {}) {
     }
 
     /**
-     * 主翻译函数
+     * 主翻译函�?
      * @param {string} text - 要翻译的文本
-     * @param {string} direction - 翻译方向: 'zh2en' 或 'en2zh'
+     * @param {string} direction - 翻译方向: 'zh2en' �?'en2zh'
      */
     async function translateWithDeepL(text, direction = 'zh2en', target = 'auto') {
         return new Promise((resolve, reject) => {
@@ -970,17 +973,17 @@ async function doFullPageCapture(name, format, tool, options = {}) {
     }
 
     /**
-     * 获取输入框中的文本 - 增强版
+     * 获取输入框中的文�?- 增强�?
      */
     function getInputText(element) {
-        // 标准 input/textarea
+        // 鏍囧噯 input/textarea
         if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
             return element.value || '';
         }
 
         // contenteditable 元素
         if (element.isContentEditable || element.contentEditable === 'true') {
-            // 优先使用 innerText 保留换行
+            // 浼樺厛浣跨敤 innerText 淇濈暀鎹㈣
             return element.innerText || element.textContent || '';
         }
 
@@ -989,12 +992,12 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             return element.value || '';
         }
 
-        // 回退到 textContent
+        // 回退�?textContent
         return element.textContent || '';
     }
 
     /**
-     * 设置输入框中的文本 - 增强版 (支持 Teams 等复杂编辑器)
+     * 设置输入框中的文�?- 增强�?(支持 Teams 等复杂编辑器)
      */
     function setInputText(element, text) {
         element.focus();
@@ -1007,14 +1010,14 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             return;
         }
 
-        // 标准 input/textarea
+        // 鏍囧噯 input/textarea
         if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
             const start = element.selectionStart;
             const end = element.selectionEnd;
-            // 保留撤销历史
+            // 淇濈暀鎾ら攢鍘嗗彶
             const value = element.value;
-            element.value = text; // 直接设置值
-            // 某些框架如果不触发 input 事件可能不会更新状态
+            element.value = text; // 鐩存帴璁剧疆鍊?
+            // 某些框架如果不触�?input 事件可能不会更新状�?
             element.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
             element.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
             return;
@@ -1024,7 +1027,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         if (element.isContentEditable || element.contentEditable === 'true') {
             // 策略 A: 尝试使用 execCommand (最兼容富文本编辑器)
             try {
-                // 全选
+                // 全�?
                 document.execCommand('selectAll', false, null);
                 // 插入文本 (这通常会触发编辑器的内部逻辑)
                 if (document.execCommand('insertText', false, text)) {
@@ -1044,7 +1047,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             return;
         }
 
-        // 尝试设置 value 属性
+        // 灏濊瘯璁剧疆 value 灞炴€?
         if ('value' in element) {
             element.value = text;
             element.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
@@ -1125,17 +1128,15 @@ async function doFullPageCapture(name, format, tool, options = {}) {
      * 专门处理 CKEditor (Teams 使用的编辑器)
      */
     function setCKEditorText(element, text) {
-        // CKEditor 使用 <p> 标签包裹内容；用 textContent 避免翻译结果被当作 HTML 执行。
-        element.textContent = '';
+        // CKEditor 使用 <p> 标签包裹内容；用 textContent 避免翻译结果被当�?HTML 执行�?        element.textContent = '';
         const paragraph = document.createElement('p');
         paragraph.textContent = text;
         element.appendChild(paragraph);
 
-        // 触发 CKEditor 的事件
-        element.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+        // 触发 CKEditor 的事�?        element.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
         element.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
 
-        // 将光标移到末尾
+        // 灏嗗厜鏍囩Щ鍒版湯灏?
         try {
             const range = document.createRange();
             const sel = window.getSelection();
@@ -1158,7 +1159,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         const selectionInfo = getSelectedTextInfo(element);
         let text = selectionInfo?.text || getInputText(element);
 
-        // 移除末尾的空格（可能是2个或3个）
+        // 移除末尾的空格（可能�?个或3个）
         text = selectionInfo ? text.trim() : text.replace(/\s{2,}$/, '').trim();
 
         if (!text) {
@@ -1180,11 +1181,10 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         }
 
         isTranslating = true;
-        const directionText = settings.targetLang === 'auto' ? (direction === 'zh2en' ? '中→英' : '英→中') : `→${settings.targetLang}`;
+        const directionText = settings.targetLang === 'auto' ? (direction === 'zh2en' ? 'zh->en' : 'en->zh') : `to ${settings.targetLang}`;
         const modeText = `${directionText}...`;
 
         try {
-            // 显示翻译中提示
             const originalText = text;
             if (!selectionInfo) setInputText(element, text + ` (${modeText})`);
 
@@ -1291,8 +1291,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
     }
 
     function showPageTranslationPopup(sourceText, translatedText, rect, isLoading = false) {
-        const old = document.getElementById('translator-selection-popup');
-        if (old) old.remove();
+        document.getElementById('translator-selection-popup')?.remove();
 
         const popup = document.createElement('div');
         popup.id = 'translator-selection-popup';
@@ -1303,17 +1302,15 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             top: ${position.top}px;
             width: ${position.width}px;
             max-height: ${position.maxHeight}px;
-            overflow: hidden;
-            background: rgba(24, 24, 28, 0.96);
+            z-index: 2147483647;
+            background: rgba(17, 19, 24, 0.96);
             color: #fff;
             border: 1px solid rgba(255,255,255,0.14);
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-            padding: 0;
-            z-index: 2147483647;
+            border-radius: 14px;
+            box-shadow: 0 16px 46px rgba(0,0,0,0.38);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            font-size: 14px;
-            line-height: 1.58;
+            overflow: hidden;
+            resize: both;
         `;
 
         const header = document.createElement('div');
@@ -1378,7 +1375,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         handle = document.createElement('button');
         handle.id = FLOATING_TRANSLATOR_HANDLE_ID;
         handle.type = 'button';
-        handle.title = '打开浮动翻译台';
+        handle.title = '打开浮动翻译';
         handle.textContent = '翻译';
         handle.style.cssText = `
             position: fixed;
@@ -1454,7 +1451,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             setFloatingTranslatorResult(panel, translatedText);
             setFloatingTranslatorStatus(panel, '翻译完成', 'success');
         } catch (error) {
-            console.error('浮动翻译台翻译失败:', error);
+            console.error('浮动翻译失败', error);
             setFloatingTranslatorStatus(panel, error.message || '翻译失败', 'error');
         } finally {
             translateBtn.disabled = false;
@@ -1469,7 +1466,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         panel.id = FLOATING_TRANSLATOR_PANEL_ID;
         panel.style.cssText = `
             position: fixed;
-            right: 18px;
+            right: 68px;
             top: 84px;
             width: min(430px, calc(100vw - 28px));
             max-height: calc(100vh - 110px);
@@ -1489,7 +1486,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 12px;border-bottom:1px solid rgba(255,255,255,0.1);cursor:move;user-select:none;';
 
         const title = document.createElement('strong');
-        title.textContent = '浮动翻译台';
+        title.textContent = '浮动翻译';
         title.style.cssText = 'font-size:14px;';
 
         const closeBtn = document.createElement('button');
@@ -1655,43 +1652,43 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         panel.appendChild(header);
         panel.appendChild(body);
         document.body.appendChild(panel);
-
         makeTranslationPopupDraggable(panel, header);
         return panel;
-    }
-
-    function syncFloatingTranslatorSettings(panel) {
-        chrome.storage.local.get(['translateEngine', 'translateTargetLang'], result => {
-            const engineSelect = panel.querySelector('[data-role="translator-engine"]');
-            const targetSelect = panel.querySelector('[data-role="translator-target"]');
-            engineSelect.value = result.translateEngine || 'google';
-            targetSelect.value = result.translateTargetLang || targetLang || 'auto';
-        });
-    }
-
-    async function showFloatingTranslatorPanel(tryPaste = false) {
-        const panel = ensureFloatingTranslatorPanel();
-        syncFloatingTranslatorSettings(panel);
-        panel.style.display = 'flex';
-        const input = panel.querySelector('[data-role="translator-input"]');
-        input.focus();
-
-        if (tryPaste && !input.value.trim()) {
-            try {
-                const text = await navigator.clipboard.readText();
-                if (text) {
-                    input.value = text;
-                    setFloatingTranslatorStatus(panel, '已粘贴剪贴板内容');
-                }
-            } catch (error) {
-                // Clipboard access can fail unless the open action is considered a user gesture.
-            }
-        }
     }
 
     function hideFloatingTranslatorPanel() {
         const panel = document.getElementById(FLOATING_TRANSLATOR_PANEL_ID);
         if (panel) panel.style.display = 'none';
+    }
+
+    async function showFloatingTranslatorPanel(tryPaste = false) {
+        const panel = ensureFloatingTranslatorPanel();
+        const input = panel.querySelector('[data-role="translator-input"]');
+        const engineSelect = panel.querySelector('[data-role="translator-engine"]');
+        const targetSelect = panel.querySelector('[data-role="translator-target"]');
+
+        chrome.storage.local.get(['translateEngine', 'translateTargetLang'], (settings) => {
+            engineSelect.value = settings.translateEngine || 'google';
+            targetSelect.value = settings.translateTargetLang || targetLang || 'auto';
+        });
+
+        panel.style.display = 'flex';
+        panel.style.right = panel.style.right || '68px';
+        panel.style.top = panel.style.top || '84px';
+
+        if (tryPaste) {
+            try {
+                const text = await navigator.clipboard?.readText();
+                if (text && !input.value.trim()) {
+                    input.value = text;
+                    setFloatingTranslatorStatus(panel, '已粘贴剪贴板文字');
+                }
+            } catch (error) {
+                setFloatingTranslatorStatus(panel, '可以手动粘贴或输入文字');
+            }
+        }
+
+        setTimeout(() => input?.focus(), 0);
     }
 
     function toggleFloatingTranslatorPanel(tryPaste = false) {
@@ -1773,28 +1770,27 @@ async function doFullPageCapture(name, format, tool, options = {}) {
     }
 
     /**
-     * 检查元素是否为可输入元素 - 增强版
-     */
+     * 检查元素是否为可输入元�?- 增强�?     */
     function isInputElement(element) {
         if (!element) return false;
 
-        // ===== Teams / CKEditor 特殊检测 =====
+        // ===== Teams / CKEditor 特殊检�?=====
         // Teams 使用 CKEditor，关键属性是 data-tid="ckeditor"
         if (element.getAttribute('data-tid') === 'ckeditor') return true;
 
-        // CKEditor 类名检测
+        // CKEditor 类名检�?
         const className = element.className || '';
         if (typeof className === 'string' && className.includes('ck-editor__editable')) return true;
 
-        // 检查是否在 CKEditor 内部 (如果焦点在 <p> 子元素上)
+        // 检查是否在 CKEditor 内部 (如果焦点�?<p> 子元素上)
         if (element.closest && element.closest('[data-tid="ckeditor"]')) return true;
 
-        // Teams 其他容器检测
+        // Teams 其他容器检�?
         if (element.getAttribute('data-tid') === 'chat-pane-compose-message') return true;
 
         const tagName = element.tagName?.toLowerCase();
 
-        // 标准 textarea
+        // 鏍囧噯 textarea
         if (tagName === 'textarea') return true;
 
         // 标准 input（文本类型）
@@ -1810,11 +1806,11 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         if (element.contentEditable === 'true') return true;
         if (element.getAttribute && element.getAttribute('contenteditable') === 'true') return true;
 
-        // 检查 role 属性
+        // 检�?role 属�?
         const role = element.getAttribute && element.getAttribute('role');
         if (role === 'textbox' || role === 'combobox' || role === 'searchbox') return true;
 
-        // 检查某些常见的类名模式 (使用已有的 className 变量)
+        // 检查某些常见的类名模式 (使用已有�?className 变量)
         if (typeof className === 'string') {
             const inputPatterns = [
                 'input', 'textarea', 'editor', 'textbox',
@@ -1837,20 +1833,20 @@ async function doFullPageCapture(name, format, tool, options = {}) {
      * 获取实际的可编辑元素
      */
     function getEditableElement(element) {
-        // 如果当前元素就是输入元素，直接返回
+        // 如果当前元素就是输入元素，直接返�?
         if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
             return element;
         }
 
-        // Teams CKEditor 特殊处理：找到 data-tid="ckeditor" 的元素
+        // Teams CKEditor 特殊处理：找�?data-tid="ckeditor" 的元�?
         if (element.closest) {
             const ckeditor = element.closest('[data-tid="ckeditor"]');
             if (ckeditor) return ckeditor;
         }
 
-        // 如果是 contenteditable，可能需要向上查找
+        // 如果�?contenteditable，可能需要向上查�?
         if (element.isContentEditable) {
-            // 找到最近的 contenteditable 根元素
+            // 鎵惧埌鏈€杩戠殑 contenteditable 鏍瑰厓绱?
             let current = element;
             while (current.parentElement && current.parentElement.isContentEditable) {
                 current = current.parentElement;
@@ -1862,8 +1858,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
     }
 
     /**
-     * 键盘事件处理器
-     */
+     * 键盘事件处理�?     */
     function handleKeyDown(event) {
         if (handledKeyEvents.has(event)) return;
         handledKeyEvents.add(event);
@@ -1893,7 +1888,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
     // 注册事件监听器（使用捕获阶段以确保最先处理）
     document.addEventListener('keydown', handleKeyDown, true);
 
-    // 额外注册到 window 以捕获可能冒泡不到 document 的事件
+    // 额外注册�?window 以捕获可能冒泡不�?document 的事�?
     window.addEventListener('keydown', handleKeyDown, true);
 
     // 为动态加载的 iframe 也注入监听器
@@ -1907,12 +1902,12 @@ async function doFullPageCapture(name, format, tool, options = {}) {
                     iframeDoc._translatorInjected = true;
                 }
             } catch (e) {
-                // 跨域 iframe 无法访问，忽略
+                // 跨域 iframe 无法访问，忽�?
             }
         });
     }
 
-    // 初始注入
+    // 鍒濆娉ㄥ叆
     injectToIframes();
 
     // 监听 DOM 变化，为新的 iframe 注入
@@ -1936,7 +1931,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
     window.__toolboxToggleFloatingTranslator = () => toggleFloatingTranslatorPanel(true);
     ensureFloatingTranslatorHandle();
 
-    console.log('翻译助手已加载 - 在任意输入框按三次空格触发翻译(中英双向)');
+    console.log('翻译助手已加载 - 在任意输入框按三次空格触发翻译（中英双向）');
 })();
 
 // ==================== 网页采集画布 v1 ====================
@@ -1950,7 +1945,57 @@ async function doFullPageCapture(name, format, tool, options = {}) {
     const HANDLE_ID = 'web-collector-canvas-handle';
     let selectionSnapshot = null;
     let collectorFilter = '';
+    let collectorTypeFilter = 'all';
     let lastCollectorToggleAt = 0;
+    let collectorOpenOnAdd = true;
+    let collectorPageSaveEnabled = true;
+    let collectorVisibleTypes = {
+        text: true,
+        image: true,
+        page: true,
+        link: true
+    };
+
+    function applyCollectorSettings(result = {}) {
+        collectorOpenOnAdd = result.collectorOpenOnAdd !== false;
+        collectorPageSaveEnabled = result.collectorPageSaveEnabled !== false;
+        collectorVisibleTypes = {
+            text: result.collectorShowTextFilter !== false,
+            image: result.collectorShowImageFilter !== false,
+            page: result.collectorShowPageFilter !== false,
+            link: result.collectorShowLinkFilter !== false
+        };
+        if (collectorTypeFilter !== 'all' && !collectorVisibleTypes[collectorTypeFilter]) {
+            collectorTypeFilter = 'all';
+        }
+    }
+
+    chrome.storage.local.get([
+        'collectorOpenOnAdd',
+        'collectorPageSaveEnabled',
+        'collectorShowTextFilter',
+        'collectorShowImageFilter',
+        'collectorShowPageFilter',
+        'collectorShowLinkFilter'
+    ], applyCollectorSettings);
+
+    chrome.storage.onChanged.addListener((changes, namespace) => {
+        if (namespace !== 'local') return;
+        const collectorKeys = [
+            'collectorOpenOnAdd',
+            'collectorPageSaveEnabled',
+            'collectorShowTextFilter',
+            'collectorShowImageFilter',
+            'collectorShowPageFilter',
+            'collectorShowLinkFilter'
+        ];
+        if (collectorKeys.some(key => changes[key])) {
+            chrome.storage.local.get(collectorKeys, (result) => {
+                applyCollectorSettings(result);
+                renderPanel();
+            });
+        }
+    });
 
     function isInsideCollectorUi(node) {
         const element = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
@@ -2010,7 +2055,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             });
             saveItems(items.slice(0, 200), () => {
                 renderPanel();
-                showPanel();
+                if (collectorOpenOnAdd) showPanel();
                 showActionFeedback('已加入画布');
             });
         });
@@ -2079,7 +2124,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             const dataUrl = await readFileAsDataUrl(file);
             addImageDataItem(dataUrl, file.name || 'pasted-image');
         }
-        showPanel();
+        if (collectorOpenOnAdd) showPanel();
     }
 
     async function addClipboardImages() {
@@ -2106,7 +2151,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
 
             await addImageFiles(imageFiles);
         } catch (error) {
-            console.warn('读取剪贴板图片失败:', error);
+            console.warn('读取剪贴板图片失败', error);
             showActionFeedback('请用 Ctrl+V 粘贴');
         }
     }
@@ -2119,11 +2164,30 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         });
     }
 
-    function addCurrentPageItem() {
+    function getPageDescription() {
+        return document.querySelector('meta[name="description"]')?.content ||
+            document.querySelector('meta[property="og:description"]')?.content ||
+            '';
+    }
+
+    function getPageFavicon() {
+        const icon = document.querySelector('link[rel~="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]');
+        if (!icon?.href) return '';
+        return isSafeCollectorUrl(icon.href, ['http:', 'https:', 'data:']) ? icon.href : '';
+    }
+
+    function addCurrentPageItem(extraText = '') {
+        if (!collectorPageSaveEnabled) {
+            showActionFeedback('网页收藏已关闭');
+            return;
+        }
         addCollectorItem({
-            type: 'link',
+            type: 'page',
             href: location.href,
-            text: document.title || location.href
+            text: document.title || location.href,
+            excerpt: extraText || getPageDescription(),
+            favicon: getPageFavicon(),
+            domain: location.hostname
         });
     }
 
@@ -2166,7 +2230,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
 
     function normalizeImportedItem(item) {
         if (!item || typeof item !== 'object') return null;
-        const type = ['text', 'image', 'link'].includes(item.type) ? item.type : 'text';
+        const type = ['text', 'image', 'link', 'page'].includes(item.type) ? item.type : 'text';
         const now = new Date().toISOString();
         const normalized = {
             id: String(item.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`),
@@ -2183,10 +2247,15 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             normalized.alt = String(item.alt || '');
             normalized.text = normalized.text || normalized.alt || normalized.src;
             if (!normalized.src || !isSafeCollectorUrl(normalized.src)) return null;
-        } else if (type === 'link') {
+        } else if (type === 'link' || type === 'page') {
             normalized.href = String(item.href || item.url || '');
             normalized.text = normalized.text || normalized.href;
             if (!normalized.href || !isSafeCollectorUrl(normalized.href, ['http:', 'https:'])) return null;
+            if (type === 'page') {
+                normalized.excerpt = String(item.excerpt || '');
+                normalized.favicon = isSafeCollectorUrl(item.favicon || '', ['http:', 'https:', 'data:']) ? String(item.favicon) : '';
+                normalized.domain = String(item.domain || '');
+            }
         } else if (!normalized.text) {
             return null;
         }
@@ -2253,8 +2322,26 @@ async function doFullPageCapture(name, format, tool, options = {}) {
 
     function getItemText(item) {
         if (item.type === 'image') return item.src || item.alt || '';
-        if (item.type === 'link') return item.href || item.text || '';
+        if (item.type === 'link' || item.type === 'page') return item.href || item.text || '';
         return item.text || '';
+    }
+
+    function getCollectorItemType(item) {
+        return ['text', 'image', 'page', 'link'].includes(item.type) ? item.type : 'text';
+    }
+
+    function getCollectorTypeLabel(type) {
+        return {
+            all: '全部',
+            image: '图片',
+            text: '文字',
+            page: '网页',
+            link: '链接'
+        }[type] || '内容';
+    }
+
+    function getVisibleCollectorTypeOptions() {
+        return ['image', 'text', 'page', 'link'].filter(type => collectorVisibleTypes[type]);
     }
 
     function getItemSearchText(item) {
@@ -2263,6 +2350,8 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             item.title,
             item.url,
             item.text,
+            item.excerpt,
+            item.domain,
             item.alt,
             item.src,
             item.href,
@@ -2281,15 +2370,21 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         const lines = ['# 网页采集画布', ''];
         getOrderedItems(items).forEach((item, index) => {
             const time = new Date(item.createdAt).toLocaleString();
-            const pinnedPrefix = item.pinned ? '★ ' : '';
+            const pinnedPrefix = item.pinned ? '鈽?' : '';
             lines.push(`## ${index + 1}. ${pinnedPrefix}${escapeMarkdown(item.title) || '未命名页面'}`);
             lines.push('');
-            lines.push(`- 来源：${item.url || location.href}`);
-            lines.push(`- 时间：${time}`);
-            if (item.note) lines.push(`- 备注：${escapeMarkdown(item.note)}`);
+            lines.push(`- 来源: ${item.url || location.href}`);
+            lines.push(`- 时间: ${time}`);
+            if (item.note) lines.push(`- 备注: ${escapeMarkdown(item.note)}`);
             lines.push('');
             if (item.type === 'image') {
                 lines.push(`![${escapeMarkdown(item.alt) || 'image'}](${item.src})`);
+            } else if (item.type === 'page') {
+                lines.push(`[${escapeMarkdown(item.text) || item.href}](${item.href})`);
+                if (item.excerpt) {
+                    lines.push('');
+                    lines.push(`> ${escapeMarkdown(item.excerpt)}`);
+                }
             } else if (item.type === 'link') {
                 lines.push(`[${escapeMarkdown(item.text) || item.href}](${item.href})`);
             } else {
@@ -2354,7 +2449,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             const extMatch = path.match(/\.([a-zA-Z0-9]{2,5})$/);
             if (extMatch) return extMatch[1].toLowerCase();
         } catch (error) {
-            console.warn('图片扩展名解析失败:', error);
+            console.warn('图片扩展名解析失败', error);
         }
         return index ? 'jpg' : 'png';
     }
@@ -2570,7 +2665,9 @@ async function doFullPageCapture(name, format, tool, options = {}) {
 
             const actions = document.createElement('div');
             actions.style.cssText = 'display:flex;gap:8px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.08);flex-wrap:wrap;';
-            actions.appendChild(createButton('采当前页', '把当前页面加入采集画布', addCurrentPageItem, 'primary'));
+            if (collectorPageSaveEnabled) {
+                actions.appendChild(createButton('存网页', '把当前页面加入采集画布', () => addCurrentPageItem(), 'primary'));
+            }
             actions.appendChild(createButton('导出图片', '下载画布里的所有图片', exportAllImages, 'primary'));
             actions.appendChild(createButton('导出 MD', '导出 Markdown', exportMarkdown, 'primary'));
             actions.appendChild(createButton('复制全部', '复制全部为 Markdown', copyAllMarkdown));
@@ -2587,6 +2684,29 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             search.value = collectorFilter;
             search.style.cssText = 'width:100%;box-sizing:border-box;border:1px solid rgba(255,255,255,0.12);border-radius:8px;background:rgba(255,255,255,0.08);color:#fff;padding:8px 10px;font-size:13px;outline:none;';
             searchWrap.appendChild(search);
+
+            const typeFilters = document.createElement('div');
+            typeFilters.style.cssText = 'display:flex;gap:6px;margin-top:8px;overflow:auto;padding-bottom:1px;';
+            const counts = items.reduce((acc, item) => {
+                const type = getCollectorItemType(item);
+                acc[type] = (acc[type] || 0) + 1;
+                return acc;
+            }, {});
+            const availableTypes = getVisibleCollectorTypeOptions();
+            ['all', ...availableTypes].forEach(type => {
+                const button = createButton(
+                    `${getCollectorTypeLabel(type)} ${type === 'all' ? items.length : (counts[type] || 0)}`,
+                    `只看${getCollectorTypeLabel(type)}`,
+                    () => {
+                        collectorTypeFilter = type;
+                        renderPanel();
+                    },
+                    collectorTypeFilter === type ? 'primary' : 'default'
+                );
+                button.style.padding = '5px 8px';
+                typeFilters.appendChild(button);
+            });
+            if (availableTypes.length) searchWrap.appendChild(typeFilters);
 
             const dropZone = document.createElement('div');
             dropZone.tabIndex = 0;
@@ -2624,28 +2744,34 @@ async function doFullPageCapture(name, format, tool, options = {}) {
                 collectorFilter = search.value.trim().toLowerCase();
                 let visibleCount = 0;
                 list.querySelectorAll('[data-collector-search]').forEach(card => {
-                    const matched = !collectorFilter || card.dataset.collectorSearch.includes(collectorFilter);
+                    const matchedSearch = !collectorFilter || card.dataset.collectorSearch.includes(collectorFilter);
+                    const matchedType = collectorTypeFilter === 'all' || card.dataset.collectorType === collectorTypeFilter;
+                    const matched = matchedSearch && matchedType;
                     card.style.display = matched ? '' : 'none';
                     if (matched) visibleCount += 1;
                 });
                 emptyFiltered.style.display = items.length && visibleCount === 0 ? 'block' : 'none';
-                titleMeta.textContent = collectorFilter ? `${visibleCount}/${items.length} 条内容` : `${items.length} 条内容`;
+                titleMeta.textContent = collectorFilter || collectorTypeFilter !== 'all'
+                    ? `${visibleCount}/${items.length} 条内容`
+                    : `${items.length} 条内容`;
             };
             search.addEventListener('input', applyPanelFilter);
 
             if (!items.length) {
                 const empty = document.createElement('div');
-                empty.textContent = '选中网页文字，点“采集”加入这里。';
+                empty.textContent = '选中文字、图片或链接，点“采集”加入这里。';
                 empty.style.cssText = 'color:#94a3b8;font-size:13px;line-height:1.6;padding:20px 4px;';
                 list.appendChild(empty);
             } else {
                 getOrderedItems(items).forEach(item => {
+                    const itemType = getCollectorItemType(item);
                     const card = document.createElement('article');
                     card.style.cssText = `background:${item.pinned ? 'rgba(91,80,216,0.16)' : 'rgba(255,255,255,0.07)'};border:1px solid ${item.pinned ? 'rgba(168,181,255,0.35)' : 'rgba(255,255,255,0.08)'};border-radius:9px;padding:10px;`;
                     card.dataset.collectorSearch = getItemSearchText(item);
+                    card.dataset.collectorType = itemType;
 
                     const typeLabel = document.createElement('div');
-                    typeLabel.textContent = `${item.pinned ? '置顶 · ' : ''}${item.type === 'image' ? '图片' : item.type === 'link' ? '链接' : '文字'}`;
+                    typeLabel.textContent = `${item.pinned ? '置顶 · ' : ''}${getCollectorTypeLabel(itemType)}`;
                     typeLabel.style.cssText = 'display:inline-flex;margin-bottom:7px;padding:2px 6px;border-radius:999px;background:rgba(91,80,216,0.35);font-size:11px;color:#d9ddff;';
 
                     let contentNode;
@@ -2660,6 +2786,32 @@ async function doFullPageCapture(name, format, tool, options = {}) {
                         caption.style.cssText = 'font-size:12px;color:#cbd5e1;margin-top:7px;word-break:break-word;';
                         contentNode.appendChild(img);
                         contentNode.appendChild(caption);
+                    } else if (item.type === 'page') {
+                        contentNode = document.createElement('div');
+                        const pageLink = document.createElement('a');
+                        pageLink.href = isSafeCollectorUrl(item.href, ['http:', 'https:']) ? item.href : '#';
+                        pageLink.target = '_blank';
+                        pageLink.rel = 'noopener noreferrer';
+                        pageLink.style.cssText = 'display:flex;align-items:center;gap:8px;color:#f8fafc;font-size:13px;font-weight:700;line-height:1.45;word-break:break-word;text-decoration:none;';
+                        if (item.favicon) {
+                            const favicon = document.createElement('img');
+                            favicon.src = item.favicon;
+                            favicon.alt = '';
+                            favicon.style.cssText = 'width:18px;height:18px;border-radius:4px;object-fit:cover;flex:0 0 auto;background:rgba(255,255,255,0.08);';
+                            pageLink.appendChild(favicon);
+                        }
+                        const pageTitle = document.createElement('span');
+                        pageTitle.textContent = item.text || item.href;
+                        pageLink.appendChild(pageTitle);
+                        const domain = document.createElement('div');
+                        domain.textContent = item.domain || '';
+                        domain.style.cssText = 'font-size:12px;color:#a8b5ff;margin-top:5px;word-break:break-word;';
+                        const excerpt = document.createElement('div');
+                        excerpt.textContent = item.excerpt || '';
+                        excerpt.style.cssText = `display:${item.excerpt ? 'block' : 'none'};font-size:12px;color:#cbd5e1;line-height:1.5;margin-top:7px;white-space:pre-wrap;word-break:break-word;max-height:86px;overflow:auto;`;
+                        contentNode.appendChild(pageLink);
+                        contentNode.appendChild(domain);
+                        contentNode.appendChild(excerpt);
                     } else if (item.type === 'link') {
                         contentNode = document.createElement('a');
                         contentNode.href = isSafeCollectorUrl(item.href, ['http:', 'https:']) ? item.href : '#';
@@ -2742,7 +2894,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         if (!link || isInsideCollectorUi(link)) return null;
         if (link.closest?.('button, [role="button"], nav, [role="tablist"], [role="menu"], [role="toolbar"]')) return null;
         const href = link.href;
-        if (!href || href.startsWith('javascript:')) return null;
+        if (!href || !isSafeCollectorUrl(href, ['http:', 'https:'])) return null;
         const rect = link.getBoundingClientRect();
         if (!rect || (rect.width === 0 && rect.height === 0)) return null;
         if (rect.width < 40 || rect.height < 16) return null;
@@ -2807,7 +2959,13 @@ async function doFullPageCapture(name, format, tool, options = {}) {
                 handler: () => window.__toolboxTranslateSelection?.()
             },
             {
-                icon: '⧉',
+                icon: 'W',
+                text: '存网页',
+                title: '保存当前网页，并带上选中文本',
+                handler: () => addCurrentPageItem(selectionSnapshot?.text || selectionInfo.text)
+            },
+            {
+                icon: 'C',
                 text: '复制',
                 title: '复制选中文字',
                 handler: async () => {
@@ -3140,18 +3298,32 @@ async function doFullPageCapture(name, format, tool, options = {}) {
     console.log('网页临时清理工具已加载');
 })();
 
-// ==================== 消息监听 ====================
+// ==================== 娑堟伅鐩戝惉 ====================
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    // 使用立即执行的异步函数处理消息
+    // 使用立即执行的异步函数处理消�?
     (async () => {
         try {
             if (request.action === 'processImage') {
                 const { image, name, format, tool } = request.payload;
-                const canvas = await processCanvas(image, name, tool);
+                if (!image || typeof image !== 'string') {
+                    throw new Error('没有收到截图数据');
+                }
                 const filename = generateFilename(name, format, tool);
-                downloadCanvas(canvas, filename, format);
+                try {
+                    const canvas = await processCanvas(image, name, tool);
+                    downloadCanvas(canvas, filename, format);
+                } catch (err) {
+                    console.warn('[截图] 添加页眉失败，改为保存原始截图:', err);
+                    const link = document.createElement('a');
+                    link.href = image;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                }
                 sendResponse({ success: true });
+                return;
             }
 
             // 新的全页截图处理 - 使用 Debugger API（一劳永逸方案）
@@ -3177,14 +3349,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     downloadCanvas(canvas, filename, format);
 
                     toast.style.background = 'rgba(76,175,80,0.95)';
-                    toast.textContent = '✓ 全页截图完成！';
+                    toast.textContent = '✅ 全页截图完成！';
                     setTimeout(() => toast.remove(), 2000);
-                    console.log('[全页截图] 处理完成！');
+                    console.log('[全页截图] 处理完成');
                 } catch (err) {
                     toast.style.background = 'rgba(244,67,54,0.95)';
-                    toast.textContent = '✗ 截图处理失败';
+                    toast.textContent = '⚠️ 页眉处理失败，正在保存原图';
                     setTimeout(() => toast.remove(), 3000);
-                    throw err;
+                    console.warn('[全页截图] 添加页眉失败，改为保存原始截图:', err);
+                    const filename = generateFilename(name, format, tool);
+                    const link = document.createElement('a');
+                    link.href = image;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
                 }
 
                 sendResponse({ success: true });
@@ -3214,14 +3393,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 toast.textContent = '📸 正在截取整个页面...';
                 document.body.appendChild(toast);
 
-                // 先发送响应，不阻塞 popup 关闭
+                // 先发送响应，不阻�?popup 关闭
                 sendResponse({ success: true, started: true });
 
                 // 等待 popup 关闭
                 await wait(300);
 
-                // ===== 关键优化：计算真实的页面高度（针对 SPA/100vh 容器）=====
-                // 对于宽度，严格使用视口宽度，防止页面偏移（很多网站 scrollWidth 会略大约视口）
+                // ===== 关键优化：计算真实的页面高度（针�?SPA/100vh 容器�?====
+                // 对于宽度，严格使用视口宽度，防止页面偏移（很多网�?scrollWidth 会略大约视口�?
                 let captureWidth = window.innerWidth;
                 let totalHeight = document.documentElement.scrollHeight;
 
@@ -3231,22 +3410,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     if (scrollContainer) {
                         console.log('[全页截图] 检测到内部滚动容器:', scrollContainer);
                         totalHeight = Math.max(totalHeight, scrollContainer.scrollHeight);
-                        // 注意：这里不要去取 scrollContainer.scrollWidth，保持视口宽度
+                        // 注意：这里不要去�?scrollContainer.scrollWidth，保持视口宽�?
                     }
                 } catch (e) {
                     console.warn('[全页截图] 查找滚动容器失败:', e);
                 }
 
-                // 确保高度至少为视口高度
+                // 确保高度至少为视口高�?
                 totalHeight = Math.max(totalHeight, window.innerHeight);
 
-                // ===== 额外优化：增加底部缓冲 =====
-                // Gemini 等网站底部有固定定位元素，增加 300px 缓冲确保内容不被遮挡，同时也给底部留白
+                // ===== 额外优化：增加底部缓�?=====
+                // Gemini 等网站底部有固定定位元素，增�?300px 缓冲确保内容不被遮挡，同时也给底部留�?
                 totalHeight += 300;
 
                 console.log(`[全页截图] 计算出的目标尺寸: ${captureWidth}x${totalHeight}`);
 
-                // ===== 关键修复：Flow 网站布局防抖动 =====
+                // ===== 关键修复：Flow 网站布局防抖�?=====
                 // 在截图前强制锁定 body 和应用根节点的宽度，防止因为视口变化导致响应式布局（如 Grid/Flex）坍塌成单列
                 const originalBodyWidth = document.body.style.width;
                 const originalBodyMaxWidth = document.body.style.maxWidth;
@@ -3257,7 +3436,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     document.body.style.width = `${captureWidth}px`;
                     document.body.style.maxWidth = 'none'; // 移除最大宽度限制，防止挤压
 
-                    // 针对常见的 App 根节点 (如 #app, #root, #__next) 也进行锁定
+                    // 针对常见�?App 根节�?(�?#app, #root, #__next) 也进行锁�?
                     ['#app', '#root', '#__next', 'main'].forEach(selector => {
                         const el = document.querySelector(selector);
                         if (el) {
@@ -3270,7 +3449,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     console.warn('[全页截图] 锁定布局宽度失败:', e);
                 }
 
-                // 调用 background.js 的 Debugger API 截图
+                // 调用 background.js �?Debugger API 截图
                 try {
                     const response = await chrome.runtime.sendMessage({
                         action: 'captureFullPage',
@@ -3278,7 +3457,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                             name,
                             format,
                             tool,
-                            // 传递计算出的尺寸，覆盖自动检测
+                            // 传递计算出的尺寸，覆盖自动检�?
                             overrideMetrics: {
                                 width: Math.ceil(captureWidth),
                                 height: Math.ceil(totalHeight),
@@ -3290,20 +3469,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     if (!response.success) {
                         throw new Error(response.error || '截图失败');
                     }
-                    // 截图处理会在 processFullPageImage 中完成
+                    // 截图处理会在 processFullPageImage 中完�?
                 } catch (err) {
                     console.error('[全页截图] 失败:', err);
                     const existingToast = document.getElementById('fullpage-capture-toast');
                     if (existingToast) {
                         existingToast.style.background = 'rgba(244,67,54,0.95)';
-                        existingToast.textContent = '✗ 截图失败: ' + (err.message || '请重试');
+                        existingToast.textContent = '❌ 截图失败: ' + (err.message || '请重试');
                         setTimeout(() => existingToast.remove(), 3000);
                     }
                 } finally {
                     // ===== 恢复布局样式 =====
                     // 发送消息是异步的，但通常很快。为了保险，我们在短暂延迟后恢复样式
-                    // 或者更理想的是，background 截图是耗时的，我们应该保持锁定直到截图完成？
-                    // 由于 sendMessage 是 await 的，直到 background 返回响应（截图完成），我们才恢复样式
+                    // 或者更理想的是，background 截图是耗时的，我们应该保持锁定直到截图完成�?
+                    // 由于 sendMessage �?await 的，直到 background 返回响应（截图完成），我们才恢复样式
                     // 这样正好保护了整个截图过程！
                     setTimeout(() => {
                         document.body.style.width = originalBodyWidth;
@@ -3317,11 +3496,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 }
             }
 
-            // 屏幕区域录制 - 接收 tabCapture 流 ID，初始化录制
+            // 屏幕区域录制 - 接收 tabCapture �?ID，初始化录制
             if (request.action === 'initRegionRecording') {
-                const { streamId } = request.payload;
-                if (typeof handleInitRegionRecording === 'function') {
-                    handleInitRegionRecording(streamId);
+                const { streamId } = request.payload || {};
+                if (typeof window.handleInitRegionRecording === 'function') {
+                    window.handleInitRegionRecording(streamId, request.payload || {});
                     sendResponse({ success: true });
                 } else {
                     console.error('[屏幕录制] 录制模块未加载');
@@ -3329,12 +3508,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 }
             }
 
-            // 屏幕区域录制 - 显示区域选择器（通过 popup 触发）
+            // 屏幕区域录制 - 显示区域选择器（通过 popup 触发�?
             if (request.action === 'startRegionSelector') {
-                if (typeof showRecordingRegionSelector === 'function') {
+                if (typeof window.showRecordingRegionSelector === 'function') {
                     const name = request.payload?.name || '未命名';
                     const tool = request.payload?.tool || 'Midjourney生成';
-                    showRecordingRegionSelector(name, tool);
+                    window.showRecordingRegionSelector(name, tool);
                     sendResponse({ success: true });
                 } else {
                     console.error('[屏幕录制] 录制模块未加载');
@@ -3347,32 +3526,40 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             }
         } catch (e) {
             console.error("Content Script Error", e);
-            alert("截图处理出错，请刷新页面重试。");
+            if (request.action === 'startRegionSelector' || request.action === 'initRegionRecording') {
+                if (typeof window.showRecordingToast === 'function') {
+                    window.showRecordingToast("录屏启动失败：" + (e.message || "请刷新页面重试"), 'error');
+                } else {
+                    alert("录屏启动失败：" + (e.message || "请刷新页面重试。"));
+                }
+            } else {
+                alert("截图处理出错：" + (e.message || "请刷新页面重试。"));
+            }
             sendResponse({ success: false, error: e.message });
         }
     })();
 
-    // 返回 true 表示会异步发送响应
+    // 返回 true 表示会异步发送响�?
     return true;
 });
 
 console.log('WebCraft 网页工坊内容脚本已加载');
 
-// ==================== YouTube 缩略图悬停下载 ====================
+// ==================== YouTube 缩略图悬停下�?====================
 
 (function initYouTubeThumbnailDownloader() {
     'use strict';
 
-    // 只在 YouTube 页面运行
-    if (!window.location.hostname.includes('youtube.com')) {
+    // 鍙湪 YouTube 椤甸潰杩愯
+    if (!isYouTubeHost()) {
         return;
     }
 
-    // 注入样式
+    // 娉ㄥ叆鏍峰紡
     const style = document.createElement('style');
     style.textContent = `
         .yt-thumbnail-download-btn {
-            position: absolute;
+            position: fixed;
             top: 8px;
             right: 8px;
             width: 32px;
@@ -3395,7 +3582,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             transform: scale(1.1);
         }
         
-        /* 缩略图容器悬停显示 */
+        /* 缩略图容器悬停显�?*/
         .yt-thumbnail-container:hover .yt-thumbnail-download-btn,
         ytd-thumbnail:hover .yt-thumbnail-download-btn,
         ytd-playlist-thumbnail:hover .yt-thumbnail-download-btn,
@@ -3408,11 +3595,9 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         #movie_player:hover .yt-thumbnail-download-btn {
             opacity: 1;
         }
-        .yt-thumbnail-host-with-download {
-            position: relative !important;
-            overflow: visible !important;
+        .yt-thumbnail-download-btn.is-floating-visible {
+            opacity: 1;
         }
-        
         /* 正在视频播放页的按钮位置调整 */
         #movie_player .yt-thumbnail-download-btn {
             top: 20px;
@@ -3421,10 +3606,83 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             height: 40px;
             font-size: 20px;
             background: rgba(0, 0, 0, 0.5);
-            z-index: 60; /* 确保在播放器控制层之上 */
+            z-index: 60; /* 确保在播放器控制层之�?*/
         }
         #movie_player .yt-thumbnail-download-btn:hover {
             background: rgba(255, 0, 0, 0.9);
+        }
+
+        .yt-webcraft-player-tools {
+            position: absolute;
+            top: 50%;
+            right: -22px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 7px 6px;
+            border-radius: 18px 0 0 18px;
+            background: rgba(18, 18, 22, 0.52);
+            border: 1px solid rgba(255,255,255,0.18);
+            border-right: 0;
+            box-shadow: 0 8px 22px rgba(0,0,0,0.28);
+            backdrop-filter: blur(10px);
+            z-index: 61;
+            opacity: 0.72;
+            transform: translateY(-50%);
+            transition: opacity 0.16s ease, right 0.16s ease, background 0.16s ease;
+            pointer-events: auto;
+        }
+        #movie_player:hover .yt-webcraft-player-tools,
+        .html5-video-player:hover .yt-webcraft-player-tools,
+        .yt-webcraft-player-tools:focus-within {
+            opacity: 1;
+            right: 0;
+            background: rgba(18, 18, 22, 0.72);
+        }
+        .yt-webcraft-player-btn {
+            position: relative;
+            border: 0;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.14);
+            color: #fff;
+            cursor: pointer;
+            font: 700 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            height: 30px;
+            width: 30px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+        }
+        .yt-webcraft-player-btn:hover {
+            background: rgba(102, 86, 220, 0.9);
+        }
+        .yt-webcraft-player-btn::after {
+            content: attr(data-label);
+            position: absolute;
+            right: 38px;
+            top: 50%;
+            transform: translateY(-50%);
+            min-width: max-content;
+            padding: 6px 9px;
+            border-radius: 8px;
+            background: rgba(15,15,18,0.92);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            opacity: 0;
+            pointer-events: none;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.24);
+            transition: opacity 0.14s ease;
+        }
+        .yt-webcraft-player-btn:hover::after,
+        .yt-webcraft-player-btn:focus-visible::after {
+            opacity: 1;
+        }
+        .yt-webcraft-player-btn.is-busy {
+            opacity: 0.72;
+            cursor: progress;
         }
 
         .yt-thumbnail-download-btn.downloading {
@@ -3496,14 +3754,14 @@ console.log('WebCraft 网页工坊内容脚本已加载');
 
     function parseWhitelist(value) {
         return String(value || '')
-            .split(/[\n,，;；]+/)
+            .split(/[\n,，；;]+/)
             .map(item => item.trim().toLowerCase())
             .filter(Boolean);
     }
 
     function parseYoutubeList(value) {
         return String(value || '')
-            .split(/[\n,，;；]+/)
+            .split(/[\n,，；;]+/)
             .map(item => item.trim().toLowerCase())
             .filter(Boolean);
     }
@@ -3527,6 +3785,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         youtubeHideAds = result.youtubeHideAds === true;
         youtubeBlacklist = parseYoutubeList(result.youtubeBlacklist);
         applyRecommendationFilter();
+        ensureYoutubePlayerTools();
     });
 
     chrome.storage.onChanged.addListener((changes, namespace) => {
@@ -3541,6 +3800,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             youtubeToolsEnabled = changes.youtubeToolsEnabled.newValue !== false;
             if (!youtubeToolsEnabled) {
                 document.querySelectorAll('.yt-thumbnail-download-btn').forEach(btn => btn.remove());
+                document.querySelectorAll('.yt-webcraft-player-tools').forEach(panel => panel.remove());
                 document.querySelectorAll('[data-yt-download-processed]').forEach(el => el.removeAttribute('data-yt-download-processed'));
             }
         }
@@ -3567,13 +3827,14 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         if (request.payload.youtubeBlacklist !== undefined) youtubeBlacklist = parseYoutubeList(request.payload.youtubeBlacklist);
         if (!youtubeToolsEnabled) {
             document.querySelectorAll('.yt-thumbnail-download-btn').forEach(btn => btn.remove());
+            document.querySelectorAll('.yt-webcraft-player-tools').forEach(panel => panel.remove());
             document.querySelectorAll('[data-yt-download-processed]').forEach(el => el.removeAttribute('data-yt-download-processed'));
         }
         applyRecommendationFilter();
     });
 
     /**
-     * 从 URL 或元素提取视频 ID
+     * �?URL 或元素提取视�?ID
      */
     function extractVideoIdFromElement(element) {
         // 1. 如果是播放器本身
@@ -3582,7 +3843,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             return urlParams.get('v');
         }
 
-        // 2. 尝试从父级链接获取 (Search results, Sidebar, Home)
+        // 2. 灏濊瘯浠庣埗绾ч摼鎺ヨ幏鍙?(Search results, Sidebar, Home)
         const link = element.closest('a[href]') ||
             element.querySelector?.('a[href*="/watch"], a[href*="/shorts"]');
         if (link) {
@@ -3592,12 +3853,12 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             const watchMatch = href.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
             if (watchMatch) return watchMatch[1];
 
-            // Shorts 链接
+            // Shorts 閾炬帴
             const shortsMatch = href.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
             if (shortsMatch) return shortsMatch[1];
         }
 
-        // 3. 尝试从 img src 获取
+        // 3. 灏濊瘯浠?img src 鑾峰彇
         const img = element.querySelector('img');
         if (img && img.src) {
             const imgMatch = img.src.match(/\/vi\/([a-zA-Z0-9_-]{11})\//);
@@ -3615,14 +3876,14 @@ console.log('WebCraft 网页工坊内容脚本已加载');
     function getVideoTitle(element, isPlayer) {
         // 1. 如果是播放器界面，直接取网页标题
         if (isPlayer) {
-            // 大部分情况 document.title 是 "Title - YouTube"
+            // 大部分情�?document.title �?"Title - YouTube"
             return document.title.replace(' - YouTube', '');
         }
 
         // 2. 如果是缩略图，尝试寻找附近的标题元素
 
-        // 尝试找 #video-title (在 Grid/List 视图中常见)
-        // 需要向上找 renderer 然后向下找 title
+        // 尝试�?#video-title (�?Grid/List 视图中常�?
+        // 需要向上找 renderer 然后向下�?title
         const renderer = element.closest(VIDEO_RENDERER_SELECTOR) ||
             (element.matches?.(VIDEO_RENDERER_SELECTOR) ? element : null);
         if (renderer) {
@@ -3635,7 +3896,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             if (shortsTitle) return shortsTitle.textContent;
         }
 
-        // 尝试寻找 aria-label
+        // 灏濊瘯瀵绘壘 aria-label
         const ariaLabel = element.getAttribute('aria-label') || element.querySelector('a#thumbnail')?.getAttribute('aria-label');
         if (ariaLabel) {
             // aria-label 通常包含 "Title by Author ViewCount Time"
@@ -3651,7 +3912,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
     function createDownloadButton(videoId, isPlayer = false, element = null) {
         const btn = document.createElement('button');
         btn.className = 'yt-thumbnail-download-btn';
-        btn.innerHTML = '⬇️';
+        btn.innerHTML = '猬囷笍';
         btn.title = '下载最高清缩略图';
         btn.dataset.videoId = videoId;
 
@@ -3669,7 +3930,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             btn.classList.add('downloading');
             btn.innerHTML = '';
 
-            // 获取标题
+            // 鑾峰彇鏍囬
             let title = 'video';
             let channel = '未知频道';
             if (isPlayer) {
@@ -3680,13 +3941,13 @@ console.log('WebCraft 网页工坊内容脚本已加载');
                 if (extracted && extracted !== 'youtube_video') {
                     title = extracted;
                 } else {
-                    // 再次尝试从 document title (如果是单视频页)或者 fallback
+                    // 再次尝试�?document title (如果是单视频�?或�?fallback
                     title = `video_${videoId}`;
                 }
                 channel = getRecommendationChannelName(element) || channel;
             }
 
-            // 只下载最高清 maxresdefault
+            // 鍙笅杞芥渶楂樻竻 maxresdefault
             const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
             const filename = buildYoutubeFilename({ title, channel, videoId });
 
@@ -3696,23 +3957,23 @@ console.log('WebCraft 网页工坊内容脚本已加载');
                     payload: { url: thumbnailUrl, filename }
                 }, (response) => {
                     if (response && response.success) {
-                        btn.innerHTML = '✅';
+                        btn.innerHTML = '✓';
                     } else {
-                        // 失败时不降级，直接显示错误
-                        btn.innerHTML = '❌';
-                        console.warn('最高清缩略图下载失败: 404 Not Found 或其他错误');
+                        // 失败时不降级，直接显示错�?
+                        btn.innerHTML = '✕';
+                        console.warn('最高清缩略图下载失败，404 Not Found 或其他错误');
                     }
 
                     setTimeout(() => {
-                        btn.innerHTML = '⬇️';
+                        btn.innerHTML = '猬囷笍';
                         btn.classList.remove('downloading');
                     }, 2000);
                 });
             } catch (error) {
                 console.error('下载失败:', error);
-                btn.innerHTML = '❌';
+                btn.innerHTML = '✕';
                 setTimeout(() => {
-                    btn.innerHTML = '⬇️';
+                    btn.innerHTML = '猬囷笍';
                     btn.classList.remove('downloading');
                 }, 2000);
             }
@@ -3748,6 +4009,340 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             .replaceAll('{date}', getTodayForFilename())
             .replaceAll('{id}', sanitizeFilenamePart(videoId, 'video'));
         return `${sanitizeFilenamePart(base, `video_${videoId}`)}.jpg`;
+    }
+
+    function buildYoutubeCaptureFilename({ title, channel, videoId, ext }) {
+        const now = new Date();
+        const time = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+        const base = [
+            sanitizeFilenamePart(channel, 'youtube'),
+            sanitizeFilenamePart(title, `video_${videoId}`),
+            getTodayForFilename(),
+            time
+        ].filter(Boolean).join('-');
+        return `${sanitizeFilenamePart(base, `youtube_${videoId || 'video'}_${time}`)}.${ext}`;
+    }
+
+    function getCurrentYoutubeMeta() {
+        const videoId = new URLSearchParams(window.location.search).get('v') || 'video';
+        const title = document.querySelector('h1 yt-formatted-string, h1.title, #title h1')?.textContent?.trim() ||
+            document.title.replace(' - YouTube', '').trim() ||
+            `video_${videoId}`;
+        const channel = document.querySelector('ytd-video-owner-renderer ytd-channel-name a, #owner #channel-name a, ytd-watch-metadata #channel-name a')?.textContent?.trim() ||
+            'YouTube';
+        return { videoId, title, channel };
+    }
+
+    function getYoutubeVideoElement() {
+        const videos = Array.from(document.querySelectorAll('#movie_player video.html5-main-video, .html5-video-player video.html5-main-video, video.html5-main-video, video'));
+        const visibleVideos = videos
+            .map(video => ({ video, rect: video.getBoundingClientRect() }))
+            .filter(item => item.rect.width >= 120 && item.rect.height >= 80 && item.video.readyState >= 1)
+            .sort((a, b) => (b.rect.width * b.rect.height) - (a.rect.width * a.rect.height));
+        return visibleVideos[0]?.video || videos.find(video => video.readyState >= 1) || videos[0] || null;
+    }
+
+    function getVisibleVideoRect() {
+        const video = getYoutubeVideoElement();
+        const rect = (video || document.querySelector('#movie_player, .html5-video-player'))?.getBoundingClientRect();
+        if (!rect || rect.width < 50 || rect.height < 50) return null;
+        const x = Math.max(0, rect.left);
+        const y = Math.max(0, rect.top);
+        const right = Math.min(window.innerWidth, rect.right);
+        const bottom = Math.min(window.innerHeight, rect.bottom);
+        const w = Math.round(right - x);
+        const h = Math.round(bottom - y);
+        if (w < 50 || h < 50) return null;
+        return { x: Math.round(x), y: Math.round(y), w, h };
+    }
+
+    async function downloadDataUrl(url, filename) {
+        return new Promise((resolve) => {
+            chrome.runtime.sendMessage({
+                action: 'downloadCollectorImage',
+                payload: { url, filename }
+            }, (response) => {
+                resolve(response || { success: false, error: chrome.runtime.lastError?.message });
+            });
+        });
+    }
+
+    async function captureYoutubeFrameByVideo(filename) {
+        const video = getYoutubeVideoElement();
+        if (!video || !video.videoWidth || !video.videoHeight) throw new Error('No video frame');
+
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+        return downloadDataUrl(canvas.toDataURL('image/png'), filename);
+    }
+
+    async function captureYoutubeFrameByVisibleCrop(filename, toolsPanel) {
+        const rect = getVisibleVideoRect();
+        if (!rect) throw new Error('No player rect');
+
+        if (toolsPanel) toolsPanel.style.visibility = 'hidden';
+        await wait(120);
+        const dataUrl = await new Promise((resolve) => {
+            chrome.runtime.sendMessage({ action: 'captureTab' }, (response) => resolve(response));
+        });
+        if (toolsPanel) toolsPanel.style.visibility = '';
+        if (!dataUrl) throw new Error('Capture tab failed');
+
+        const img = await new Promise((resolve, reject) => {
+            const image = new Image();
+            image.onload = () => resolve(image);
+            image.onerror = () => reject(new Error('Screenshot load failed'));
+            image.src = dataUrl;
+        });
+        const scaleX = img.width / window.innerWidth;
+        const scaleY = img.height / window.innerHeight;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(rect.w * scaleX);
+        canvas.height = Math.round(rect.h * scaleY);
+        canvas.getContext('2d').drawImage(
+            img,
+            Math.round(rect.x * scaleX),
+            Math.round(rect.y * scaleY),
+            canvas.width,
+            canvas.height,
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+        return downloadDataUrl(canvas.toDataURL('image/png'), filename);
+    }
+
+    async function captureYoutubeFrame(toolsPanel) {
+        const meta = getCurrentYoutubeMeta();
+        const filename = buildYoutubeCaptureFilename({ ...meta, ext: 'png' });
+        try {
+            const direct = await captureYoutubeFrameByVideo(filename);
+            if (direct?.success) return direct;
+            throw new Error(direct?.error || 'Direct frame capture failed');
+        } catch (error) {
+            console.warn('[YouTube] Direct frame capture failed, fallback to visible crop:', error);
+            return captureYoutubeFrameByVisibleCrop(filename, toolsPanel);
+        }
+    }
+
+    function startYoutubeVideoRecording(toolsPanel) {
+        if (startYoutubeElementRecording(toolsPanel)) return;
+
+        alert('当前 YouTube 视频暂时无法直接录制，请先播放视频后再点一次“录”。');
+    }
+
+    function startYoutubeElementRecording(toolsPanel) {
+        const video = getYoutubeVideoElement();
+        const captureStream = video?.captureStream || video?.mozCaptureStream;
+        if (!video || !captureStream || !window.MediaRecorder) return false;
+
+        try {
+            const stream = captureStream.call(video);
+            if (!stream || !stream.getVideoTracks().length) return false;
+
+            const mimeOptions = ['video/webm; codecs=vp9', 'video/webm; codecs=vp8', 'video/webm'];
+            const mimeType = mimeOptions.find(type => MediaRecorder.isTypeSupported(type)) || '';
+            const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+            const chunks = [];
+            const startedAt = Date.now();
+            const meta = getCurrentYoutubeMeta();
+            let timerId = null;
+
+            if (toolsPanel) toolsPanel.style.visibility = 'hidden';
+
+            const playerHost = document.querySelector('#movie_player, .html5-video-player');
+            const panel = document.createElement('div');
+            panel.id = 'yt-webcraft-recording-panel';
+            if (playerHost && window.getComputedStyle(playerHost).position === 'static') {
+                playerHost.style.position = 'relative';
+            }
+            panel.style.cssText = `
+                position: absolute;
+                right: 18px;
+                bottom: 58px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 7px 9px;
+                border-radius: 999px;
+                background: rgba(18,18,22,0.9);
+                color: #fff;
+                border: 1px solid rgba(255,255,255,0.16);
+                box-shadow: 0 8px 24px rgba(0,0,0,0.32);
+                z-index: 2147483646;
+                font: 600 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            `;
+
+            const dot = document.createElement('span');
+            dot.textContent = '●';
+            dot.style.cssText = 'color:#ff4d4f;font-size:13px;';
+
+            const timer = document.createElement('span');
+            timer.textContent = '00:00';
+            timer.style.cssText = 'min-width:38px;color:#ff9a9a;font-variant-numeric:tabular-nums;';
+
+            const pauseBtn = document.createElement('button');
+            pauseBtn.textContent = '暂停';
+            pauseBtn.style.cssText = 'border:0;border-radius:999px;padding:6px 10px;background:rgba(255,255,255,0.14);color:#fff;cursor:pointer;font:inherit;';
+
+            const stopBtn = document.createElement('button');
+            stopBtn.textContent = '停止';
+            stopBtn.style.cssText = 'border:0;border-radius:999px;padding:6px 10px;background:#e53935;color:#fff;cursor:pointer;font:inherit;';
+
+            panel.appendChild(dot);
+            panel.appendChild(timer);
+            panel.appendChild(pauseBtn);
+            panel.appendChild(stopBtn);
+            (playerHost || document.body).appendChild(panel);
+
+            timerId = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+                timer.textContent = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
+            }, 500);
+
+            recorder.ondataavailable = (event) => {
+                if (event.data?.size) chunks.push(event.data);
+            };
+
+            recorder.onstop = () => {
+                clearInterval(timerId);
+                panel.remove();
+                if (toolsPanel) toolsPanel.style.visibility = '';
+
+                if (!chunks.length) {
+                    alert('录制数据为空，无法保存');
+                    return;
+                }
+
+                const blob = new Blob(chunks, { type: recorder.mimeType || 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const filename = buildYoutubeCaptureFilename({ ...meta, ext: 'webm' });
+                const fallbackDownload = () => {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    a.style.display = 'none';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    setTimeout(() => URL.revokeObjectURL(url), 10000);
+                };
+
+                try {
+                    if (!chrome.runtime?.id) {
+                        fallbackDownload();
+                        return;
+                    }
+
+                    chrome.runtime.sendMessage({
+                        action: 'downloadRecording',
+                        payload: { url, filename }
+                    }, (response) => {
+                        if (chrome.runtime.lastError || !response?.success) {
+                            fallbackDownload();
+                            return;
+                        }
+                        setTimeout(() => URL.revokeObjectURL(url), 10000);
+                    });
+                } catch (error) {
+                    fallbackDownload();
+                }
+            };
+
+            pauseBtn.onclick = (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (recorder.state === 'recording') {
+                    recorder.pause();
+                    pauseBtn.textContent = '继续';
+                    dot.style.opacity = '0.35';
+                } else if (recorder.state === 'paused') {
+                    recorder.resume();
+                    pauseBtn.textContent = '暂停';
+                    dot.style.opacity = '1';
+                }
+            };
+
+            stopBtn.onclick = (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (recorder.state !== 'inactive') recorder.stop();
+            };
+
+            recorder.start(250);
+            return true;
+        } catch (error) {
+            console.warn('[YouTube] video.captureStream recording failed:', error);
+            if (toolsPanel) toolsPanel.style.visibility = '';
+            return false;
+        }
+    }
+
+    function ensureYoutubePlayerTools() {
+        if (!youtubeToolsEnabled || window.location.pathname !== '/watch') {
+            document.querySelectorAll('.yt-webcraft-player-tools').forEach(panel => panel.remove());
+            return;
+        }
+
+        const player = document.querySelector('#movie_player, .html5-video-player');
+        if (!player) return;
+        const currentVideoId = new URLSearchParams(window.location.search).get('v') || '';
+        let panel = player.querySelector('.yt-webcraft-player-tools');
+        if (panel && panel.dataset.videoId === currentVideoId) return;
+        if (panel) panel.remove();
+
+        const computedStyle = window.getComputedStyle(player);
+        if (computedStyle.position === 'static') player.style.position = 'relative';
+
+        panel = document.createElement('div');
+        panel.className = 'yt-webcraft-player-tools';
+        panel.dataset.videoId = currentVideoId;
+
+        const frameBtn = document.createElement('button');
+        frameBtn.className = 'yt-webcraft-player-btn';
+        frameBtn.type = 'button';
+        frameBtn.textContent = '帧';
+        frameBtn.dataset.label = '截取单帧';
+        frameBtn.title = '截取当前 YouTube 单帧';
+        frameBtn.addEventListener('click', async (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (frameBtn.classList.contains('is-busy')) return;
+            frameBtn.classList.add('is-busy');
+            const oldText = frameBtn.textContent;
+            frameBtn.textContent = '帧';
+            try {
+                const result = await captureYoutubeFrame(panel);
+                frameBtn.textContent = result?.success ? '已保存' : '失败';
+                if (!result?.success) console.warn('[YouTube] frame capture failed:', result?.error);
+            } catch (error) {
+                console.error('[YouTube] frame capture failed:', error);
+                frameBtn.textContent = '帧';
+            }
+            setTimeout(() => {
+                frameBtn.textContent = oldText;
+                frameBtn.classList.remove('is-busy');
+            }, 1200);
+        });
+
+        const videoBtn = document.createElement('button');
+        videoBtn.className = 'yt-webcraft-player-btn';
+        videoBtn.type = 'button';
+        videoBtn.textContent = '录';
+        videoBtn.dataset.label = '截取视频';
+        videoBtn.title = '录制当前 YouTube 播放器区域视频';
+        videoBtn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            startYoutubeVideoRecording(panel);
+        });
+
+        panel.appendChild(frameBtn);
+        panel.appendChild(videoBtn);
+        player.appendChild(panel);
     }
 
     function isShortsRenderer(renderer) {
@@ -3828,7 +4423,8 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         }) || null;
 
         if (visualImage) {
-            const host = visualImage.closest('a[href], ytd-thumbnail, ytd-playlist-thumbnail, #thumbnail');
+            const rendererHost = visualImage.closest(VIDEO_RENDERER_SELECTOR);
+            const host = rendererHost || visualImage.closest('a[href], ytd-thumbnail, ytd-playlist-thumbnail, #thumbnail');
             return {
                 buttonHost: host || visualImage.parentElement || fallback,
                 visualImage
@@ -3843,23 +4439,40 @@ console.log('WebCraft 网页工坊内容脚本已加载');
 
     function positionDownloadButton(btn, buttonHost, visualImage) {
         btn.style.removeProperty('left');
-        btn.style.top = '8px';
-        btn.style.right = '8px';
+        btn.style.removeProperty('right');
 
-        if (!visualImage || !buttonHost) return;
+        const target = visualImage || buttonHost;
+        if (!target) return;
 
-        const hostRect = buttonHost.getBoundingClientRect();
-        const imageRect = visualImage.getBoundingClientRect();
-        const hostIsWiderThanImage = hostRect.width > imageRect.width + 24 || hostRect.height > imageRect.height + 24;
-        if (!hostIsWiderThanImage) return;
+        const rect = target.getBoundingClientRect();
+        btn.style.left = `${Math.max(8, Math.min(window.innerWidth - 40, rect.right - 40))}px`;
+        btn.style.top = `${Math.max(8, Math.min(window.innerHeight - 40, rect.top + 8))}px`;
+    }
 
-        btn.style.right = 'auto';
-        btn.style.left = `${Math.max(0, imageRect.left - hostRect.left + imageRect.width - 40)}px`;
-        btn.style.top = `${Math.max(0, imageRect.top - hostRect.top + 8)}px`;
+    function bindFloatingDownloadButton(btn, hoverHost, buttonHost, visualImage) {
+        let hideTimer = null;
+        const update = () => positionDownloadButton(btn, buttonHost, visualImage);
+        const show = () => {
+            clearTimeout(hideTimer);
+            update();
+            btn.classList.add('is-floating-visible');
+        };
+        const hide = () => {
+            hideTimer = setTimeout(() => btn.classList.remove('is-floating-visible'), 120);
+        };
+
+        hoverHost.addEventListener('mouseenter', show);
+        hoverHost.addEventListener('mousemove', update);
+        hoverHost.addEventListener('mouseleave', hide);
+        btn.addEventListener('mouseenter', show);
+        btn.addEventListener('mouseleave', hide);
+        window.addEventListener('scroll', update, true);
+        window.addEventListener('resize', update);
+        update();
     }
 
     function applyRecommendationFilter() {
-        if (!window.location.hostname.includes('youtube.com')) return;
+        if (!isYouTubeHost()) return;
         const effectiveMode = youtubeToolsEnabled ? recommendationsMode : 'enabled';
 
         const secondary = document.querySelector('#secondary');
@@ -3897,7 +4510,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
     }
 
     /**
-     * 处理缩略图/播放器元素
+     * 处理缩略�?播放器元�?
      */
     function processElement(element) {
         // 检查是否已处理
@@ -3912,26 +4525,27 @@ console.log('WebCraft 网页工坊内容脚本已加载');
 
         processedElement.dataset.ytDownloadProcessed = 'true';
         const { buttonHost, visualImage } = findThumbnailButtonHost(renderer || element, element);
-        if (buttonHost.querySelector?.('.yt-thumbnail-download-btn')) return;
+        if (document.querySelector(`.yt-thumbnail-download-btn[data-video-id="${videoId}"]`)) return;
 
-        // 确保容器有相对定位
-        const computedStyle = window.getComputedStyle(buttonHost);
+        // 确保容器有相对定�?        const computedStyle = window.getComputedStyle(buttonHost);
         if (computedStyle.position === 'static') {
-            buttonHost.style.position = 'relative';
+            const tagName = buttonHost.tagName?.toLowerCase();
+            if (element.id === 'movie_player' || !['ytd-thumbnail', 'ytd-playlist-thumbnail', 'a'].includes(tagName)) {
+                // Floating buttons are appended to body, so avoid changing YouTube's native thumbnail layout.'
+            }
         }
 
-        // 添加标记类 (用于hover效果)
-        if (!buttonHost.classList.contains('yt-thumbnail-container')) {
+        // 添加标记�?(用于hover效果)
+        if (false && !buttonHost.classList.contains('yt-thumbnail-container')) {
             buttonHost.classList.add('yt-thumbnail-container');
         }
-        buttonHost.classList.add('yt-thumbnail-host-with-download');
+        // Do not add layout-affecting classes to YouTube thumbnail hosts.
 
-        // 创建并添加下载按钮
-        const isPlayer = element.id === 'movie_player';
-        // 传递 element 引用以便点击时获取最新标题
-        const btn = createDownloadButton(videoId, isPlayer, renderer || element);
+        // 创建并添加下载按�?        const isPlayer = element.id === 'movie_player';
+        // 传�?element 引用以便点击时获取最新标�?        const btn = createDownloadButton(videoId, isPlayer, renderer || element);
         positionDownloadButton(btn, buttonHost, visualImage);
-        buttonHost.appendChild(btn);
+        document.body.appendChild(btn);
+        bindFloatingDownloadButton(btn, renderer || buttonHost, buttonHost, visualImage);
     }
 
     /**
@@ -3943,16 +4557,15 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             return;
         }
 
-        // 1. 常规缩略图 (Home, Search, Channel, Playlist)
+        // 1. 常规缩略�?(Home, Search, Channel, Playlist)
         // ytd-thumbnail: 主缩略图容器 (Grid, List)
-        // ytd-playlist-thumbnail: 播放列表缩略图
+        // ytd-playlist-thumbnail: 播放列表缩略�?
 
-        // 2. 右侧推荐/侧边栏 (Important for User Request)
-        // 它们通常在 ytd-compact-video-renderer 中
+        // 2. 鍙充晶鎺ㄨ崘/渚ц竟鏍?(Important for User Request)
+        // 它们通常�?ytd-compact-video-renderer �?
 
         const selectors = [
-            // 右侧推荐/侧边栏先处理整条卡片，避免按钮挂到不可见的内部节点
-            '#secondary ytd-compact-video-renderer:not([data-yt-download-processed])',
+            // 右侧推荐/侧边栏先处理整条卡片，避免按钮挂到不可见的内部节�?            '#secondary ytd-compact-video-renderer:not([data-yt-download-processed])',
             '#secondary ytd-compact-radio-renderer:not([data-yt-download-processed])',
             '#secondary ytd-compact-playlist-renderer:not([data-yt-download-processed])',
             '#secondary ytd-compact-lockup-view-model:not([data-yt-download-processed])',
@@ -3962,13 +4575,12 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             '#related ytd-compact-playlist-renderer:not([data-yt-download-processed])',
             '#related ytd-compact-lockup-view-model:not([data-yt-download-processed])',
             '#related yt-lockup-view-model:not([data-yt-download-processed])',
-            // 主页、搜索结果
-            'ytd-thumbnail:not([data-yt-download-processed])',
-            // 播放列表
+            // 主页、搜索结�?            'ytd-thumbnail:not([data-yt-download-processed])',
+            // 鎾斁鍒楄〃
             'ytd-playlist-thumbnail:not([data-yt-download-processed])',
-            // Shorts (有时候是 ytd-reel-item-renderer)
+            // Shorts (鏈夋椂鍊欐槸 ytd-reel-item-renderer)
             'ytd-reel-item-renderer:not([data-yt-download-processed])',
-            // 侧边栏/推荐视频 (最关键)
+            // 侧边�?推荐视频 (最关键)
             'ytd-compact-video-renderer ytd-thumbnail:not([data-yt-download-processed])',
             'ytd-compact-video-renderer:not([data-yt-download-processed])',
             // 旧版/通用 fallback
@@ -3978,52 +4590,53 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         const thumbnails = document.querySelectorAll(selectors.join(', '));
 
         thumbnails.forEach(thumbnail => {
-            // 跳过已经处理的
+            // 跳过已经处理�?
             if (thumbnail.dataset.ytDownloadProcessed) return;
 
-            // 过滤掉太小的图标 (头像等)，保留侧边栏缩略图
+            // 过滤掉太小的图标 (头像�?，保留侧边栏缩略�?
             // 侧边栏缩略图通常宽度 > 10px
             const isRenderer = thumbnail.matches?.(VIDEO_RENDERER_SELECTOR);
             if (!isRenderer && thumbnail.offsetWidth > 10 && thumbnail.offsetWidth < 120 && thumbnail.offsetHeight < 60) {
                 // 可能是头像或者微型图标，忽略，但要小心侧边栏 compact 模式
-                // ytd-compact-video-renderer 的缩略图通常是 168x94
+                // ytd-compact-video-renderer 的缩略图通常�?168x94
                 return; // Added return here to skip processing small elements
             }
 
-            // 额外检查：如果是 Shorts 的某些 UI，结构可能不同
-            processElement(thumbnail);
+            // 额外检查：如果�?Shorts 的某�?UI，结构可能不�?            processElement(thumbnail);
         });
 
         applyRecommendationFilter();
+        ensureYoutubePlayerTools();
 
         // 2. 当前播放视频的播放器
-        // 只有在 Watch 页面才处理
+        // 只有�?Watch 页面才处�?
         if (window.location.pathname === '/watch') {
             const player = document.querySelector('#movie_player:not([data-yt-download-processed])');
             if (player) {
-                // 确保不要在广告播放时处理，或者更新 ID
+                // 确保不要在广告播放时处理，或者更�?ID
                 processElement(player);
             } else {
-                // 如果播放器已经处理过，但 URL 变了 (SPA跳转)，需要更新 ID
+                // 如果播放器已经处理过，但 URL 变了 (SPA跳转)，需要更�?ID
                 const processedPlayer = document.querySelector('#movie_player[data-yt-download-processed]');
                 if (processedPlayer) {
                     const currentVideoId = new URLSearchParams(window.location.search).get('v');
                     const btn = processedPlayer.querySelector('.yt-thumbnail-download-btn');
                     if (btn && btn.dataset.videoId !== currentVideoId) {
-                        // 视频 ID 变了，移除旧按钮，重置状态
+                        // 视频 ID 变了，移除旧按钮，重置状�?
                         btn.remove();
+                        processedPlayer.querySelector('.yt-webcraft-player-tools')?.remove();
                         processedPlayer.removeAttribute('data-yt-download-processed');
-                        // 下次扫描会重新添加
+                        // 下次扫描会重新添�?
                     }
                 }
             }
         }
     }
 
-    // 初次扫描
+    // 鍒濇鎵弿
     setTimeout(scanThumbnails, 1000);
 
-    // 监听 DOM 变化
+    // 鐩戝惉 DOM 鍙樺寲
     const observer = new MutationObserver((mutations) => {
         let shouldScan = false;
         for (const mutation of mutations) {
@@ -4033,7 +4646,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             }
         }
         if (shouldScan) {
-            // 防抖
+            // 闃叉姈
             clearTimeout(observer._scanTimeout);
             observer._scanTimeout = setTimeout(scanThumbnails, 500);
         }
@@ -4050,12 +4663,12 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         const url = location.href;
         if (url !== lastUrl) {
             lastUrl = url;
-            // URL 变化后，强制重新扫描，特别是针对播放器
+            // URL 变化后，强制重新扫描，特别是针对播放�?
             setTimeout(scanThumbnails, 1000);
         }
     }).observe(document, { subtree: true, childList: true });
 
-    console.log('YouTube 缩略图下载功能已加载 (增强版)');
+    console.log('YouTube 缩略图下载功能已加载（增强版）');
 })();
 
 // ==================== 隐藏 YouTube 翻译按钮功能 ====================
@@ -4063,12 +4676,12 @@ console.log('WebCraft 网页工坊内容脚本已加载');
 (function initHideYoutubeTranslate() {
     'use strict';
 
-    // 只在 YouTube 页面运行
-    if (!window.location.hostname.includes('youtube.com')) {
+    // 鍙湪 YouTube 椤甸潰杩愯
+    if (!isYouTubeHost()) {
         return;
     }
 
-    // 用于隐藏"翻译成中文"按钮的样式
+    // 用于隐藏"翻译成中�?按钮的样�?
     const styleId = 'yt-hide-translate-style';
 
     /**
@@ -4083,8 +4696,8 @@ console.log('WebCraft 网页工坊内容脚本已加载');
                 styleElement.id = styleId;
                 document.head.appendChild(styleElement);
             }
-            // 隐藏评论区"翻译成中文"按钮
-            // 这个按钮通常是 ytd-comment-renderer 内的翻译按钮
+            // 隐藏评论�?翻译成中�?按钮
+            // 这个按钮通常�?ytd-comment-renderer 内的翻译按钮
             styleElement.textContent = `
                 /* 隐藏评论翻译按钮 */
                 ytd-comment-renderer #translate-button,
@@ -4095,11 +4708,11 @@ console.log('WebCraft 网页工坊内容脚本已加载');
                 #comment-content #translate-button,
                 ytd-comment-renderer tp-yt-paper-button[aria-label*="翻译"],
                 ytd-comment-view-model tp-yt-paper-button[aria-label*="翻译"],
-                /* 隐藏"翻译成中文"文字链接 */
+                /* 隐藏评论下方的翻译文字链接 */
                 #content-text + #translate-button,
                 ytd-comment-renderer [id="translate-button"],
                 ytd-comment-view-model [id="translate-button"],
-                /* 更精确的选择器 - 翻译按钮容器 */
+                /* 更精确的选择�?- 翻译按钮容器 */
                 #comment-content > #translate-button,
                 #expander > #translate-button,
                 ytd-comment-renderer #published-time-text + #translate-button,
@@ -4118,7 +4731,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             `;
             console.log('YouTube 评论翻译按钮已隐藏');
         } else {
-            // 移除样式以显示翻译按钮
+            // 移除样式以显示翻译按�?
             if (styleElement) {
                 styleElement.remove();
             }
@@ -4133,7 +4746,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         }
     });
 
-    // 监听设置变化
+    // 鐩戝惉璁剧疆鍙樺寲
     chrome.storage.onChanged.addListener((changes, namespace) => {
         if (namespace === 'local' && changes.hideYoutubeTranslate) {
             updateHideTranslateStyle(changes.hideYoutubeTranslate.newValue);
@@ -4150,25 +4763,26 @@ console.log('WebCraft 网页工坊内容脚本已加载');
 
     console.log('[屏幕录制] 模块加载中...');
 
-    // ===== 状态变量 =====
-    let regionRect = null;         // 用户选择的区域 { x, y, w, h }
-    let tabStream = null;          // tabCapture 的媒体流
-    let mediaRecorder = null;      // MediaRecorder 实例
-    let recordedChunks = [];       // 录制的数据块
-    let isRecording = false;       // 是否正在录制
-    let isPaused = false;          // 是否暂停
-    let recordingStartTime = 0;    // 录制开始时间
-    let timerInterval = null;      // 计时器定时器
+    // ===== screen recorder state =====
+    let regionRect = null;
+    let tabStream = null;
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let isRecording = false;
+    let isPaused = false;
+    let recordingStartTime = 0;
+    let timerInterval = null;
     let cropAnimFrameId = null;    // requestAnimationFrame ID
-    let controlPanel = null;       // 录制控制面板 DOM 元素
-    let recordingBorder = null;    // 录制区域边框
-    let recordingSizeBytes = 0;     // 已收集视频数据大小
-    let recordingName = '未命名';   // 录制文件名称（来自 popup）
-    let recordingTool = 'Midjourney生成'; // 录制工具名称（来自 popup）
+    let controlPanel = null;
+    let recordingBorder = null;
+    let recordingSizeBytes = 0;
+    let recordingName = '\u672a\u547d\u540d';
+    let recordingTool = 'Midjourney\u751f\u6210';
     let recordingModuleEnabled = true;
     let recordingShowBorder = true;
     let recordingMaxMinutes = 30;
     let recordingMaxSizeMB = 500;
+    let recordingHotkeyHandler = null;
     const LAST_REGION_KEY = 'screenRecorderLastRegion';
 
     chrome.storage.local.get(['recordingModuleEnabled', 'recordingShowBorder', 'recordingMaxMinutes', 'recordingMaxSizeMB'], (result) => {
@@ -4237,7 +4851,45 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         sizeLabel.textContent = `${rect.w} × ${rect.h} px`;
     }
 
-    // ===== 区域选择器 =====
+    // ===== 区域选择�?=====
+    function installRecordingHotkeys() {
+        removeRecordingHotkeys();
+        recordingHotkeyHandler = (event) => {
+            if (!isRecording && !isPaused) return;
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                stopRecording();
+            } else if (event.altKey && event.key.toLowerCase() === 'p') {
+                event.preventDefault();
+                event.stopPropagation();
+                toggleRecordingPause();
+            }
+        };
+        document.addEventListener('keydown', recordingHotkeyHandler, true);
+        window.addEventListener('keydown', recordingHotkeyHandler, true);
+    }
+
+    function removeRecordingHotkeys() {
+        if (!recordingHotkeyHandler) return;
+        document.removeEventListener('keydown', recordingHotkeyHandler, true);
+        window.removeEventListener('keydown', recordingHotkeyHandler, true);
+        recordingHotkeyHandler = null;
+    }
+
+    function toggleRecordingPause() {
+        if (!mediaRecorder) return;
+        if (isPaused && mediaRecorder.state === 'paused') {
+            mediaRecorder.resume();
+            isPaused = false;
+            isRecording = true;
+        } else if (mediaRecorder.state === 'recording') {
+            mediaRecorder.pause();
+            isPaused = true;
+            isRecording = false;
+        }
+    }
+
     function showRecordingRegionSelector(name, tool, useLastRegion = true) {
         if (!recordingModuleEnabled) {
             showRecordingToast('录屏模块已在设置页关闭', 'error');
@@ -4246,9 +4898,9 @@ console.log('WebCraft 网页工坊内容脚本已加载');
 
         recordingName = name || '未命名';
         recordingTool = tool || 'Midjourney生成';
-        console.log(`[屏幕录制] 显示区域选择器, 名称: ${recordingName}, 工具: ${recordingTool}`);
+        console.log(`[屏幕录制] 显示区域选择器，名称: ${recordingName}, 工具: ${recordingTool}`);
 
-        // 移除已有的选择器
+        // 移除已有的选择�?
         const existing = document.getElementById('screen-recorder-overlay');
         if (existing) existing.remove();
 
@@ -4260,11 +4912,20 @@ console.log('WebCraft 网页工坊内容脚本已加载');
                 @keyframes sr-fade-in { from { opacity:0; transform:translateX(-50%) translateY(10px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
                 @keyframes sr-pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
                 @keyframes sr-compact-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+                body.webcraft-recording-clean-ui #web-collector-canvas-handle,
+                body.webcraft-recording-clean-ui #webcraft-floating-translator-handle,
+                body.webcraft-recording-clean-ui .yt-webcraft-player-tools,
+                body.webcraft-recording-clean-ui .yt-thumbnail-download-btn,
+                body.webcraft-recording-clean-ui #screen-recorder-control-panel,
+                body.webcraft-recording-clean-ui #screen-recorder-active-border,
+                body.webcraft-recording-clean-ui .screen-recorder-toast {
+                    display: none !important;
+                }
             `;
             document.head.appendChild(style);
         }
 
-        // 创建覆盖层
+        // 创建覆盖�?
         const overlay = document.createElement('div');
         overlay.id = 'screen-recorder-overlay';
         overlay.style.cssText = `
@@ -4277,7 +4938,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             user-select: none;
         `;
 
-        // 选区框
+        // 选区�?
         const selectionBox = document.createElement('div');
         selectionBox.id = 'screen-recorder-selection';
         selectionBox.style.cssText = `
@@ -4290,7 +4951,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             pointer-events: none;
         `;
 
-        // 尺寸标注
+        // 灏哄鏍囨敞
         const sizeLabel = document.createElement('div');
         sizeLabel.id = 'screen-recorder-size-label';
         sizeLabel.style.cssText = `
@@ -4307,7 +4968,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             white-space: nowrap;
         `;
 
-        // 提示文字
+        // 鎻愮ず鏂囧瓧
         const hint = document.createElement('div');
         hint.style.cssText = `
             position: fixed;
@@ -4355,7 +5016,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             regionRect = null;
             hint.style.display = 'none';
             selectionBox.style.display = 'block';
-            // 覆盖层使用透明背景，通过选区的 box-shadow 实现暗色遮罩
+            // 覆盖层使用透明背景，通过选区�?box-shadow 实现暗色遮罩
             overlay.style.background = 'transparent';
         });
 
@@ -4390,7 +5051,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             const w = Math.abs(e.clientX - startX);
             const h = Math.abs(e.clientY - startY);
 
-            // 选区太小则忽略
+            // 选区太小则忽�?
             if (w < 50 || h < 50) {
                 showRecordingToast('选区太小，请重新选择（至少 50×50 像素）', 'error');
                 cleanupSelector();
@@ -4405,7 +5066,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseup', onMouseUp);
 
-        // Esc 取消
+        // Esc 鍙栨秷
         const onEsc = (e) => {
             if (e.key === 'Escape') {
                 cleanupSelector();
@@ -4415,7 +5076,6 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         document.addEventListener('keydown', onEsc);
     }
 
-    // 显示确认按钮（开始录制 / 重选 / 取消）
     function showConfirmButtons(overlay, selectionBox, sizeLabel) {
         const existingBar = document.getElementById('screen-recorder-confirm-bar');
         if (existingBar) existingBar.remove();
@@ -4447,7 +5107,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
         `;
 
-        // 开始录制按钮
+        // 开始录制按�?
         const btnStart = document.createElement('button');
         btnStart.textContent = '🔴 开始录制';
         btnStart.style.cssText = makeBtnStyle('linear-gradient(135deg, #ff4444, #cc0000)');
@@ -4458,7 +5118,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             overlay.remove();
             selectionBox.style.display = 'none';
             sizeLabel.style.display = 'none';
-            // 请求 background 获取 tabCapture 流
+            // 请求 background 获取 tabCapture �?
             chrome.runtime.sendMessage({ action: 'startScreenRecording' }, (resp) => {
                 if (!resp || !resp.success) {
                     showRecordingToast('启动录制失败: ' + (resp?.error || '未知错误'), 'error');
@@ -4467,9 +5127,9 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             });
         };
 
-        // 重选按钮
+        // 重选按�?
         const btnReselect = document.createElement('button');
-        btnReselect.textContent = '↩ 重新选区';
+        btnReselect.textContent = '↻ 重新选区';
         btnReselect.style.cssText = makeBtnStyle('rgba(255,255,255,0.2)');
         btnReselect.style.backdropFilter = 'blur(8px)';
         btnReselect.onmouseenter = () => { btnReselect.style.transform = 'scale(1.05)'; };
@@ -4480,9 +5140,9 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             showRecordingRegionSelector(recordingName, recordingTool, false);
         };
 
-        // 取消按钮
+        // 鍙栨秷鎸夐挳
         const btnCancel = document.createElement('button');
-        btnCancel.textContent = '✕ 取消';
+        btnCancel.textContent = '取消';
         btnCancel.style.cssText = makeBtnStyle('rgba(255,255,255,0.15)');
         btnCancel.style.backdropFilter = 'blur(8px)';
         btnCancel.onmouseenter = () => { btnCancel.style.transform = 'scale(1.05)'; };
@@ -4498,7 +5158,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         document.body.appendChild(btnBar);
     }
 
-    // 清理区域选择器
+    // 清理区域选择�?
     function cleanupSelector() {
         ['screen-recorder-overlay', 'screen-recorder-selection',
             'screen-recorder-size-label', 'screen-recorder-confirm-bar'].forEach(id => {
@@ -4509,9 +5169,21 @@ console.log('WebCraft 网页工坊内容脚本已加载');
 
     // ===== 录制核心 =====
 
-    // 初始化录制（接收 tabCapture 流 ID 后调用）
-    async function handleInitRegionRecording(streamId) {
+    // 初始化录制（接收 tabCapture �?ID 后调用）
+    async function handleInitRegionRecording(streamId, options = {}) {
         console.log('[屏幕录制] 初始化录制，streamId:', streamId);
+
+        if (options.regionRect) {
+            regionRect = {
+                x: Math.max(0, Math.round(Number(options.regionRect.x) || 0)),
+                y: Math.max(0, Math.round(Number(options.regionRect.y) || 0)),
+                w: Math.max(50, Math.round(Number(options.regionRect.w) || 0)),
+                h: Math.max(50, Math.round(Number(options.regionRect.h) || 0))
+            };
+            recordingName = options.name || recordingName || '\u672a\u547d\u540d';
+            recordingTool = options.tool || recordingTool || 'YouTube';
+            saveLastRegion(regionRect);
+        }
 
         if (!regionRect) {
             showRecordingToast('没有选择录制区域', 'error');
@@ -4519,12 +5191,13 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         }
 
         try {
-            // 通过 streamId 获取标签页的媒体流
+            // 通过 streamId 获取标签页的媒体�?
+            const streamSource = options.streamSource || 'tab';
             tabStream = await navigator.mediaDevices.getUserMedia({
                 audio: false,
                 video: {
                     mandatory: {
-                        chromeMediaSource: 'tab',
+                        chromeMediaSource: streamSource,
                         chromeMediaSourceId: streamId
                     }
                 }
@@ -4542,7 +5215,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             console.log(`[屏幕录制] 视频源: ${sourceWidth}x${sourceHeight}, DPR: ${dpr}`);
             console.log(`[屏幕录制] 裁剪区域: ${regionRect.x},${regionRect.y} ${regionRect.w}x${regionRect.h}`);
 
-            // 创建隐藏的 video 元素来接收 tabCapture 流
+            // 创建隐藏�?video 元素来接�?tabCapture �?
             const sourceVideo = document.createElement('video');
             sourceVideo.srcObject = tabStream;
             sourceVideo.muted = true;
@@ -4551,7 +5224,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             await sourceVideo.play();
 
             // Canvas 用于裁剪 - 尺寸必须基于视频源的实际缩放比，而非 DPR
-            // 否则当 sourceWidth/innerWidth != DPR 时，画面宽高比会失真
+            // 否则�?sourceWidth/innerWidth != DPR 时，画面宽高比会失真
             const scaleX = sourceWidth / window.innerWidth;
             const scaleY = sourceHeight / window.innerHeight;
 
@@ -4562,7 +5235,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
 
             console.log(`[屏幕录制] 缩放比: scaleX=${scaleX.toFixed(3)}, scaleY=${scaleY.toFixed(3)}, canvas=${cropCanvas.width}x${cropCanvas.height}`);
 
-            // 帧裁剪循环 - 持续将 tabCapture 视频流按选区裁剪画到 canvas 上
+            // 帧裁剪循�?- 持续�?tabCapture 视频流按选区裁剪画到 canvas �?
             function cropFrame() {
                 if (!isRecording && !isPaused) return;
 
@@ -4575,7 +5248,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
                 cropAnimFrameId = requestAnimationFrame(cropFrame);
             }
 
-            // 从 Canvas 获取裁剪后的流（30 FPS）
+            // �?Canvas 获取裁剪后的流（30 FPS�?
             const croppedStream = cropCanvas.captureStream(30);
 
             // 配置 MediaRecorder（编码自动降级）
@@ -4608,9 +5281,9 @@ console.log('WebCraft 网页工坊内容脚本已加载');
 
             mediaRecorder.onstop = () => {
                 console.log('[屏幕录制] MediaRecorder 已停止');
-                // 停止帧裁剪
+                // 停止帧裁�?
                 if (cropAnimFrameId) cancelAnimationFrame(cropAnimFrameId);
-                // 清理源视频和流
+                // 清理源视频和�?
                 sourceVideo.pause();
                 sourceVideo.remove();
                 if (tabStream) {
@@ -4624,11 +5297,13 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             // 开始录制
             isRecording = true;
             isPaused = false;
-            mediaRecorder.start(100); // 每 100ms 收集一次数据
+            document.body.classList.add('webcraft-recording-clean-ui');
+            installRecordingHotkeys();
+            mediaRecorder.start(100);
             cropAnimFrameId = requestAnimationFrame(cropFrame);
             recordingStartTime = Date.now();
 
-            // 显示控制面板
+            // 鏄剧ず鎺у埗闈㈡澘
             showRecordingControlPanel();
             showRecordingBorder();
             showRecordingToast('🔴 开始录制 - 你可以滚动页面了');
@@ -4636,7 +5311,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             console.log('[屏幕录制] 录制已开始');
 
         } catch (err) {
-            console.error('[屏幕录制] 初始化失败:', err);
+            console.error('[屏幕录制] 初始化失败', err);
             showRecordingToast('录制初始化失败: ' + err.message, 'error');
             cleanupRecording();
         }
@@ -4666,7 +5341,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             display: flex;
             align-items: center;
             gap: 7px;
-            padding: 6px 8px;
+            padding: 5px 7px;
             background: rgba(18, 18, 18, 0.88);
             backdrop-filter: blur(12px);
             border-radius: 999px;
@@ -4679,7 +5354,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             animation: sr-compact-in 0.2s ease;
         `;
 
-        // 红色闪烁指示器
+        // 绾㈣壊闂儊鎸囩ず鍣?
         const indicator = document.createElement('div');
         indicator.id = 'sr-recording-indicator';
         indicator.style.cssText = `
@@ -4690,18 +5365,18 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             flex-shrink: 0;
         `;
 
-        // 录制状态文字
+        // 录制状态文�?
         const statusText = document.createElement('span');
         statusText.id = 'sr-status-text';
         statusText.textContent = '录制中';
-        statusText.style.cssText = 'font-size: 12px; font-weight: 600;';
+            statusText.style.cssText = 'font-size: 11px; font-weight: 600;';
 
-        // 计时器
+        // 璁℃椂鍣?
         const timer = document.createElement('span');
         timer.id = 'sr-timer';
         timer.textContent = '00:00';
         timer.style.cssText = `
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             font-family: 'SF Mono', monospace;
             color: #ff8888;
@@ -4709,7 +5384,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             text-align: center;
         `;
 
-        // 开始计时
+        // 开始计�?
         timerInterval = setInterval(() => {
             const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
             const min = Math.floor(elapsed / 60).toString().padStart(2, '0');
@@ -4721,7 +5396,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             }
         }, 500);
 
-        // 按钮样式生成器
+        // 按钮样式生成�?
         const btnStyle = (bg) => `
             border: none;
             border-radius: 999px;
@@ -4729,15 +5404,15 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             font-size: 12px;
             font-weight: 600;
             cursor: pointer;
-            padding: 5px 10px;
+            padding: 4px 8px;
             background: ${bg};
             transition: opacity 0.2s;
             font-family: inherit;
         `;
 
-        // 暂停/恢复按钮
+        // 鏆傚仠/鎭㈠鎸夐挳
         const btnPause = document.createElement('button');
-        btnPause.textContent = '⏸ 暂停';
+        btnPause.textContent = '暂停';
         btnPause.style.cssText = btnStyle('rgba(255,255,255,0.15)');
         btnPause.onmouseenter = () => { btnPause.style.opacity = '0.8'; };
         btnPause.onmouseleave = () => { btnPause.style.opacity = '1'; };
@@ -4747,7 +5422,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
                 mediaRecorder.resume();
                 isPaused = false;
                 isRecording = true;
-                btnPause.textContent = '⏸ 暂停';
+                btnPause.textContent = '暂停';
                 statusText.textContent = '录制中';
                 indicator.style.animation = 'sr-pulse 1s ease-in-out infinite';
                 indicator.style.opacity = '1';
@@ -4755,16 +5430,16 @@ console.log('WebCraft 网页工坊内容脚本已加载');
                 mediaRecorder.pause();
                 isPaused = true;
                 isRecording = false;
-                btnPause.textContent = '▶ 恢复';
+                btnPause.textContent = '继续';
                 statusText.textContent = '已暂停';
                 indicator.style.animation = 'none';
                 indicator.style.opacity = '0.4';
             }
         };
 
-        // 停止按钮
+        // 鍋滄鎸夐挳
         const btnStop = document.createElement('button');
-        btnStop.textContent = '⏹ 停止';
+        btnStop.textContent = '停止';
         btnStop.style.cssText = btnStyle('linear-gradient(135deg, #ff4444, #cc0000)');
         btnStop.onmouseenter = () => { btnStop.style.opacity = '0.85'; };
         btnStop.onmouseleave = () => { btnStop.style.opacity = '1'; };
@@ -4772,7 +5447,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             stopRecording();
         };
 
-        // 组装面板
+        // 缁勮闈㈡澘
         controlPanel.appendChild(indicator);
         controlPanel.appendChild(statusText);
         controlPanel.appendChild(timer);
@@ -4793,8 +5468,10 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             top: ${regionRect.y}px;
             width: ${regionRect.w}px;
             height: ${regionRect.h}px;
-            border: 2px solid rgba(255, 68, 68, 0.95);
-            box-shadow: 0 0 0 1px rgba(255,255,255,0.35), 0 0 12px rgba(255,68,68,0.4);
+            border: 0;
+            outline: 2px solid rgba(255, 68, 68, 0.95);
+            outline-offset: 0;
+            box-shadow: 0 0 12px rgba(255,68,68,0.35);
             pointer-events: none;
             z-index: 2147483644;
         `;
@@ -4826,9 +5503,11 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             controlPanel = null;
         }
         removeRecordingBorder();
+        document.body.classList.remove('webcraft-recording-clean-ui');
+        removeRecordingHotkeys();
 
         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-            mediaRecorder.stop(); // 触发 onstop → exportRecording
+            mediaRecorder.stop(); // 触发 onstop �?exportRecording
         }
 
         cleanupSelector();
@@ -4847,7 +5526,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         const blob = new Blob(recordedChunks, { type: 'video/webm' });
         const blobUrl = URL.createObjectURL(blob);
 
-        // 生成文件名 - 与截图命名规则一致: 截图凭证-{工具}-{名称}-ZB{日期}.webm
+        // 生成文件�?- 与截图命名规则一�? 截图凭证-{工具}-{名称}-ZB{日期}.webm
         const now = new Date();
         const yyyy = now.getFullYear();
         const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -4857,9 +5536,9 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         const safeName = sanitizeFilenamePart(recordingName);
         const filename = `截图凭证-${safeTool}-${safeName}-${dateStr}.webm`;
 
-        console.log(`[屏幕录制] 文件名: ${filename}, 大小: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
+        console.log(`[屏幕录制] 文件: ${filename}, 大小: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
 
-        // 通过 background.js 下载（saveAs: true 让用户选择保存位置）
+        // 通过 background.js 下载（saveAs: true 让用户选择保存位置�?
         chrome.runtime.sendMessage({
             action: 'downloadRecording',
             payload: { url: blobUrl, filename }
@@ -4878,14 +5557,14 @@ console.log('WebCraft 网页工坊内容脚本已加载');
                 a.remove();
                 showRecordingToast(`✅ 视频已保存 (${(blob.size / 1024 / 1024).toFixed(1)} MB)`);
             }
-            // 延迟释放 blobUrl，确保下载完成
+            // 延迟释放 blobUrl，确保下载完�?
             setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
         });
 
         recordedChunks = [];
     }
 
-    // ===== 清理所有资源 =====
+    // ===== 娓呯悊鎵€鏈夎祫婧?=====
 
     function cleanupRecording() {
         isRecording = false;
@@ -4894,6 +5573,8 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         if (timerInterval) clearInterval(timerInterval);
         if (controlPanel) { controlPanel.remove(); controlPanel = null; }
         removeRecordingBorder();
+        document.body.classList.remove('webcraft-recording-clean-ui');
+        removeRecordingHotkeys();
         if (tabStream) { tabStream.getTracks().forEach(t => t.stop()); tabStream = null; }
         mediaRecorder = null;
         recordedChunks = [];
@@ -4901,10 +5582,11 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         cleanupSelector();
     }
 
-    // ===== 提示 Toast =====
+    // ===== 鎻愮ず Toast =====
 
     function showRecordingToast(msg, type = 'info') {
         const div = document.createElement('div');
+        div.className = 'screen-recorder-toast';
         div.textContent = msg;
         div.style.cssText = `
             position: fixed;
@@ -4931,10 +5613,10 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         }, 3000);
     }
 
-    // ===== 暴露入口函数给消息监听器（通过 window 对象） =====
+    // ===== 暴露入口函数给消息监听器（通过 window 对象�?=====
     window.showRecordingRegionSelector = showRecordingRegionSelector;
     window.handleInitRegionRecording = handleInitRegionRecording;
+    window.showRecordingToast = showRecordingToast;
 
-    console.log('[屏幕录制] 模块加载完成');
+    console.log('[屏幕录制] 模块加载中...');
 })();
-

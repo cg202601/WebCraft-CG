@@ -11,7 +11,7 @@
 <body>
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-icon">🛠️</div>
+      <div class="brand-icon">WC</div>
       <div>
         <h1>WebCraft 网页工坊</h1>
         <p id="versionText">版本</p>
@@ -19,9 +19,9 @@
     </div>
     <nav class="nav">
       <button class="nav-btn active" data-page="overview">总览</button>
-      <button class="nav-btn" data-page="screenshot">截图</button>
+      <button class="nav-btn" data-page="screenshot">截图和录屏</button>
+      <button class="nav-btn" data-page="canvas">采集画布</button>
       <button class="nav-btn" data-page="translate">翻译</button>
-      <button class="nav-btn" data-page="recording">区域录屏</button>
       <button class="nav-btn" data-page="youtube">YouTube</button>
       <button class="nav-btn" data-page="backup">导入导出</button>
       <button class="nav-btn" data-page="changelog">更新日志</button>
@@ -32,36 +32,127 @@
     <section class="page active" id="page-overview">
       <header class="page-header">
         <h2>开关总览</h2>
-        <p>集中控制插件里的主要模块。关闭后 popup 入口会禁用，对应页面脚本也会尽量停止工作。</p>
+        <p>集中控制插件里的主要模块。关闭后，对应入口会停用，页面脚本也会尽量停止工作。</p>
       </header>
       <div class="settings-grid">
         <label class="setting-card">
           <span>
             <strong>截图</strong>
-            <small>可视区域截图、长截图、截图凭证命名</small>
+            <small>可视区域截图、长截图和自定义命名。</small>
           </span>
           <input type="checkbox" id="screenshotModuleEnabled" data-setting="screenshotModuleEnabled" checked>
         </label>
         <label class="setting-card">
           <span>
+            <strong>区域录屏</strong>
+            <small>区域选择、记住上次区域、暂停继续和大小保护。</small>
+          </span>
+          <input type="checkbox" id="recordingModuleEnabled" data-setting="recordingModuleEnabled" checked>
+        </label>
+        <label class="setting-card">
+          <span>
+            <strong>采集画布</strong>
+            <small>收集文字、图片、链接和网页快照。</small>
+          </span>
+          <input type="checkbox" id="collectorPageSaveEnabledOverview" data-setting="collectorPageSaveEnabled" checked>
+        </label>
+        <label class="setting-card">
+          <span>
             <strong>翻译</strong>
-            <small>输入框快捷键翻译、选中文本翻译、历史记录</small>
+            <small>划词翻译、输入框翻译、历史记录和 DeepL。</small>
           </span>
           <input type="checkbox" id="translateEnabled" data-setting="translateEnabled" checked>
         </label>
         <label class="setting-card">
           <span>
             <strong>YouTube</strong>
-            <small>缩略图下载、推荐视频过滤、隐藏评论翻译按钮</small>
+            <small>缩略图下载、单帧截图、视频录制和推荐过滤。</small>
           </span>
           <input type="checkbox" id="youtubeToolsEnabled" data-setting="youtubeToolsEnabled" checked>
         </label>
+      </div>
+    </section>
+
+    <section class="page" id="page-screenshot">
+      <header class="page-header">
+        <h2>截图和区域录屏</h2>
+        <p>截图、长截图、区域录屏和软件/工具名称统一在这里设置，和 popup 前台保持一致。</p>
+      </header>
+      <div class="panel">
+        <label class="field">
+          <span>截图文件名模板</span>
+          <input type="text" id="screenshotFilenameTemplate" data-setting="screenshotFilenameTemplate" value="截图凭证-{tool}-{name}-{date}">
+        </label>
+        <label class="field">
+          <span>自定义软件/工具名称</span>
+          <textarea id="customToolsText" rows="6" placeholder="每行一个，例如：&#10;Nano Banana&#10;Runway&#10;Krea"></textarea>
+        </label>
+        <p class="help-text">内置选项仍会保留：Midjourney生成、Firefly生成、购买Gemini生成、Flow Ultra版、Flow Pro版。</p>
+        <label class="setting-line">
+          <span>
+            <strong>录制时显示区域边框</strong>
+            <small>用细边框标出正在录制的区域。</small>
+          </span>
+          <input type="checkbox" id="recordingShowBorder" data-setting="recordingShowBorder" checked>
+        </label>
+        <label class="field">
+          <span>最长录制时长（分钟）</span>
+          <input type="number" id="recordingMaxMinutes" data-setting="recordingMaxMinutes" min="1" max="180" value="30">
+        </label>
+        <label class="field">
+          <span>最大文件体积保护（MB）</span>
+          <input type="number" id="recordingMaxSizeMB" data-setting="recordingMaxSizeMB" min="50" max="4096" value="500">
+        </label>
+      </div>
+    </section>
+
+    <section class="page" id="page-canvas">
+      <header class="page-header">
+        <h2>采集画布</h2>
+        <p>控制画布是否自动弹出，以及顶部显示哪些分类入口。</p>
+      </header>
+      <div class="settings-grid">
         <label class="setting-card">
           <span>
-            <strong>区域录屏</strong>
-            <small>区域选择、记住上次区域、暂停/继续、大小保护</small>
+            <strong>采集后自动打开画布</strong>
+            <small>关闭后，采集文字、图片、链接只更新计数，不自动弹出右侧画布。</small>
           </span>
-          <input type="checkbox" id="recordingModuleEnabled" data-setting="recordingModuleEnabled" checked>
+          <input type="checkbox" id="collectorOpenOnAdd" data-setting="collectorOpenOnAdd" checked>
+        </label>
+        <label class="setting-card">
+          <span>
+            <strong>启用网页收藏</strong>
+            <small>允许在画布中保存当前网页的标题、链接、摘要和选中文本。</small>
+          </span>
+          <input type="checkbox" id="collectorPageSaveEnabled" data-setting="collectorPageSaveEnabled" checked>
+        </label>
+        <label class="setting-card">
+          <span>
+            <strong>显示图片筛选</strong>
+            <small>在画布顶部显示图片分类入口。</small>
+          </span>
+          <input type="checkbox" id="collectorShowImageFilter" data-setting="collectorShowImageFilter" checked>
+        </label>
+        <label class="setting-card">
+          <span>
+            <strong>显示文字筛选</strong>
+            <small>在画布顶部显示文字分类入口。</small>
+          </span>
+          <input type="checkbox" id="collectorShowTextFilter" data-setting="collectorShowTextFilter" checked>
+        </label>
+        <label class="setting-card">
+          <span>
+            <strong>显示网页筛选</strong>
+            <small>在画布顶部显示网页收藏分类入口。</small>
+          </span>
+          <input type="checkbox" id="collectorShowPageFilter" data-setting="collectorShowPageFilter" checked>
+        </label>
+        <label class="setting-card">
+          <span>
+            <strong>显示链接筛选</strong>
+            <small>在画布顶部显示普通链接分类入口。</small>
+          </span>
+          <input type="checkbox" id="collectorShowLinkFilter" data-setting="collectorShowLinkFilter" checked>
         </label>
       </div>
     </section>
@@ -69,13 +160,13 @@
     <section class="page" id="page-translate">
       <header class="page-header">
         <h2>翻译增强</h2>
-        <p>快捷键已经在 popup 里配置；这里管理语言、选中文本、历史和常用短语。</p>
+        <p>管理翻译引擎、目标语言、选中文本、历史记录和常用短语。</p>
       </header>
       <div class="panel">
         <label class="field">
           <span>翻译引擎</span>
           <select id="translateEngine" data-setting="translateEngine">
-            <option value="google">Google Translate（无需 API Key）</option>
+            <option value="google">Google Translate（无须 API Key）</option>
             <option value="deepl">DeepL API</option>
           </select>
         </label>
@@ -134,47 +225,10 @@
       </div>
     </section>
 
-    <section class="page" id="page-recording">
-      <header class="page-header">
-        <h2>区域录屏</h2>
-        <p>控制录制浮窗、边框、自动停止条件，避免视频过大。</p>
-      </header>
-      <div class="panel">
-        <label class="setting-line">
-          <span>
-            <strong>录制时显示区域边框</strong>
-            <small>用细红框标出正在录制的区域。</small>
-          </span>
-          <input type="checkbox" id="recordingShowBorder" data-setting="recordingShowBorder" checked>
-        </label>
-        <label class="field">
-          <span>最长录制时长（分钟）</span>
-          <input type="number" id="recordingMaxMinutes" data-setting="recordingMaxMinutes" min="1" max="180" value="30">
-        </label>
-        <label class="field">
-          <span>最大文件体积保护（MB）</span>
-          <input type="number" id="recordingMaxSizeMB" data-setting="recordingMaxSizeMB" min="50" max="4096" value="500">
-        </label>
-      </div>
-    </section>
-
-    <section class="page" id="page-screenshot">
-      <header class="page-header">
-        <h2>截图</h2>
-        <p>自定义截图和录屏的文件名模板。可用占位符：{tool}、{name}、{date}、{time}。</p>
-      </header>
-      <div class="panel">
-        <label class="field">
-          <span>文件名模板</span>
-          <input type="text" id="screenshotFilenameTemplate" data-setting="screenshotFilenameTemplate" value="截图凭证-{tool}-{name}-{date}">
-        </label>
-      </div>
-    </section>
-
     <section class="page" id="page-youtube">
       <header class="page-header">
         <h2>YouTube</h2>
-        <p>推荐视频白名单仍可在 popup 的 YouTube 页快速调整。</p>
+        <p>控制 YouTube 辅助工具、推荐过滤、缩略图命名和评论翻译按钮。</p>
       </header>
       <div class="panel">
         <label class="setting-line">
@@ -213,21 +267,28 @@
           </span>
           <input type="checkbox" id="youtubeHideAds" data-setting="youtubeHideAds">
         </label>
+        <label class="setting-line">
+          <span>
+            <strong>隐藏 YouTube “翻译成中文”按钮</strong>
+            <small>隐藏评论下方的翻译按钮，设置后会立即对 YouTube 页面生效。</small>
+          </span>
+          <input type="checkbox" id="hideYoutubeTranslate" data-setting="hideYoutubeTranslate">
+        </label>
       </div>
     </section>
 
     <section class="page" id="page-backup">
       <header class="page-header">
         <h2>导入导出配置</h2>
-        <p>换电脑或重装扩展时，可以把当前配置导出为 JSON，再导入恢复。</p>
+        <p>换电脑或重新安装前，先导出一次配置。</p>
       </header>
-      <div class="panel actions">
+      <div class="panel">
         <button class="primary-btn" id="exportConfig">导出配置</button>
         <label class="secondary-btn file-btn">
           导入配置
-          <input type="file" id="importConfig" accept="application/json">
+          <input type="file" id="importConfig" accept="application/json,.json">
         </label>
-        <span id="backupStatus"></span>
+        <div id="backupStatus" class="status"></div>
       </div>
     </section>
 
@@ -237,22 +298,27 @@
         <p>记录这套工具最近做过什么，后续排查也方便。</p>
       </header>
       <div class="panel changelog">
-        <h3>1.6.6</h3>
+        <h3>1.7.1</h3>
         <ul>
-          <li>新增独立设置页、模块总开关、配置导入导出。</li>
-          <li>录屏控制条改为紧凑浮窗，加入录制边框、最大时长和大小保护。</li>
-          <li>翻译支持选中文本替换、目标语言设置、历史记录和常用短语。</li>
-          <li>翻译引擎新增 DeepL API，支持 Pro / Free 接口切换。</li>
+          <li>修复编码污染导致的翻译浮窗、录屏面板和 YouTube 录制按钮乱码。</li>
+          <li>修复浮动翻译面板无法打开的问题。</li>
+          <li>修复区域录屏变量声明被注释吞掉后无法启动的问题。</li>
         </ul>
-        <h3>1.6.7</h3>
+        <h3>1.7.0</h3>
         <ul>
-          <li>修复可信发布流程在 Linux runner 打包隐藏文件导致失败的问题。</li>
+          <li>采集画布新增网页收藏类型，可保存当前网页标题、链接、域名、摘要和选中文本。</li>
+          <li>采集画布新增类型筛选：全部、图片、文字、网页、链接。</li>
+          <li>设置页调整为“截图和录屏”“采集画布”等独立页面，并清理乱码文案。</li>
         </ul>
-        <h3>1.6.5</h3>
+        <h3>1.6.9</h3>
         <ul>
-          <li>移除 Leonardo AI 功能。</li>
-          <li>区域录屏记住上次区域。</li>
-          <li>YouTube 推荐视频关闭/白名单，以及右侧缩略图下载按钮修复。</li>
+          <li>修复 CodeQL 提示的 URL 协议和域名校验问题，收紧采集链接、YouTube 页面判断和批量下载入口。</li>
+        </ul>
+        <h3>1.6.8</h3>
+        <ul>
+          <li>新增 YouTube 单帧截取和视频录制侧边按钮。</li>
+          <li>区域录屏新增干净录制模式，避免导出视频带红框和控制按钮。</li>
+          <li>新增“采集后自动打开画布”开关。</li>
         </ul>
       </div>
     </section>
