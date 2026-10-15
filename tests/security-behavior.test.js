@@ -26,7 +26,7 @@ async function testConfigExport() {
       getElementById() { return status; }
     },
     chrome: {
-      runtime: { getManifest() { return { version: '1.8.3' }; } },
+      runtime: { getManifest() { return { version: '1.8.4' }; } },
       storage: { local: { get(_keys, done) {
         assert.ok(Array.isArray(_keys));
         done({ deeplApiKey: 'secret', geminiApiKey: 'legacy-secret', translateTargetLang: 'en',
