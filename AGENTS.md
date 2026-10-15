@@ -112,11 +112,10 @@ Then manually verify at least these four flows in the browser:
 
 - Any packaged change must bump `manifest.json`.
 - Add an entry to the changelog in `options.html`.
-- Use organization trusted release flow:
+- Use the personal repository release flow (`https://github.com/cg202601/WebCraft-CG.git`):
   - push `main` to `origin`
-  - push `main` to `org`
   - tag version as `vX.Y.Z`
-  - push tag to `org`
+  - push tag to `origin`
   - confirm GitHub Actions success
 - Do not submit local zip files as official review artifacts. Use the GitHub Actions release asset.
 
