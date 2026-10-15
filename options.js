@@ -35,6 +35,12 @@ const DEFAULTS = {
 };
 
 const SETTING_KEYS = Object.keys(DEFAULTS);
+const BACKUP_KEYS = [
+  ...SETTING_KEYS.filter(key => !['deeplApiKey', 'translationHistory'].includes(key)),
+  'customTools', 'customName', 'format', 'tool', 'manualCaptureMode',
+  'translateShortcut', 'youtubeRecommendationsMode', 'youtubeRecommendationsWhitelist'
+];
+const BACKUP_KEY_SET = new Set(BACKUP_KEYS);
 const BUILT_IN_TOOLS = ['Midjourney生成', 'Firefly生成', '购买Gemini生成', 'Flow Ultra版', 'Flow Pro版'];
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -176,11 +182,10 @@ function renderHistory(history) {
 }
 
 function exportConfig() {
-  chrome.storage.local.get(null, (settings) => {
-    const exportSettings = { ...settings };
-    delete exportSettings.deeplApiKey;
-    delete exportSettings.geminiApiKey;
-
+  chrome.storage.local.get(BACKUP_KEYS, (settings) => {
+    const exportSettings = Object.fromEntries(
+      Object.entries(settings).filter(([key]) => BACKUP_KEY_SET.has(key))
+    );
     const payload = {
       name: 'WebCraft 网页工坊配置',
       version: chrome.runtime.getManifest().version,
@@ -194,8 +199,25 @@ function exportConfig() {
     a.download = `WebCraft网页工坊配置-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showStatus('backupStatus', '配置已导出，API Key 未包含在文件中');
+    showStatus('backupStatus', '配置已导出，API Key、翻译历史和采集画布未包含在文件中');
   });
+}
+
+function sanitizeBackupSettings(settings) {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) throw new Error('配置格式不正确');
+  const safeSettings = {};
+  for (const [key, value] of Object.entries(settings)) {
+    if (!BACKUP_KEY_SET.has(key)) continue;
+    if (key === 'customTools') {
+      if (Array.isArray(value) && value.every(item => typeof item === 'string')) safeSettings[key] = value;
+    } else if (Object.hasOwn(DEFAULTS, key)) {
+      if (typeof value === typeof DEFAULTS[key] &&
+          (typeof value !== 'number' || Number.isFinite(value))) safeSettings[key] = value;
+    } else if (key === 'manualCaptureMode') {
+      if (typeof value === 'boolean') safeSettings[key] = value;
+    } else if (typeof value === 'string') safeSettings[key] = value;
+  }
+  return safeSettings;
 }
 
 function importConfig(event) {
@@ -207,9 +229,13 @@ function importConfig(event) {
     try {
       const parsed = JSON.parse(reader.result);
       const settings = parsed.settings || parsed;
-      if (!settings || typeof settings !== 'object') throw new Error('配置格式不正确');
+      const safeSettings = sanitizeBackupSettings(settings);
 
-      chrome.storage.local.set(settings, () => {
+      chrome.storage.local.set(safeSettings, () => {
+        if (chrome.runtime.lastError) {
+          showStatus('backupStatus', `导入失败：${chrome.runtime.lastError.message}`);
+          return;
+        }
         chrome.storage.local.get(SETTING_KEYS, (result) => {
           const merged = { ...DEFAULTS, ...result };
           applySettingsToForm(merged);

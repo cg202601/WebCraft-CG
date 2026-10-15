@@ -206,11 +206,13 @@ async function downloadImage(item, number) {
 }
 
 document.getElementById('closePanel').addEventListener('click', () => {
-  parent.postMessage({ type: 'webcraft-close-collector' }, '*');
+  window.close();
 });
-document.getElementById('savePage').addEventListener('click', () => {
-  parent.postMessage({ type: 'webcraft-add-current-page' }, '*');
-  setStatus('已请求保存当前网页');
+document.getElementById('savePage').addEventListener('click', async () => {
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'collectorAddCurrentPage' });
+    setStatus(response?.success ? '已保存当前网页' : response?.error || '保存网页失败');
+  } catch (error) { setStatus(`保存网页失败：${error.message}`); }
 });
 document.getElementById('downloadImages').addEventListener('click', () => {
   const images = items.filter(item => typeOf(item) === 'image');

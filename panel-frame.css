@@ -8,6 +8,7 @@ button:disabled { opacity: .6; cursor: wait; }
 button.primary { background: #5b50d8; }
 button.primary:hover { background: #6a5cf0; }
 button[hidden] { display: none; }
+.controls[hidden], .actions[hidden] { display: none; }
 .panel-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; padding: 10px 12px; border-bottom: 1px solid #363946; }
 .panel-header strong { font-size: 15px; }
 .panel-header button { font-size: 18px; line-height: 1; }

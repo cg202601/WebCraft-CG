@@ -37,6 +37,12 @@ function isAllowedDownloadUrl(url, allowedProtocols = ['http:', 'https:', 'data:
     }
 }
 
+function isAllowedCollectorImageUrl(url) {
+    if (typeof url !== 'string') return false;
+    if (!isAllowedDownloadUrl(url)) return false;
+    return !url.startsWith('data:') || /^data:image\/[a-z0-9.+-]+(?:;[a-z0-9=+-]+)*,/i.test(url);
+}
+
 function sanitizeDownloadFilename(filename, fallback = 'download') {
     const safe = String(filename || '')
         .replace(/\\/g, '/')
@@ -57,6 +63,107 @@ function isYoutubeThumbnailUrl(url) {
         return false;
     }
 }
+
+const PANEL_WINDOWS = {
+    collector: { page: 'collector-frame.html', width: 430, height: 760 },
+    translator: { page: 'translator-frame.html', width: 470, height: 600 },
+    selection: { page: 'translator-frame.html?mode=selection', width: 470, height: 400 }
+};
+const panelWindowTasks = new Map();
+
+function openExtensionPanel(kind, sourceTabId, toggle = false) {
+    const previous = panelWindowTasks.get(kind) || Promise.resolve();
+    const task = previous.catch(() => {}).then(() => openExtensionPanelInternal(kind, sourceTabId, toggle));
+    panelWindowTasks.set(kind, task);
+    task.finally(() => {
+        if (panelWindowTasks.get(kind) === task) panelWindowTasks.delete(kind);
+    }).catch(() => {});
+    return task;
+}
+
+async function openExtensionPanelInternal(kind, sourceTabId, toggle) {
+    const panel = PANEL_WINDOWS[kind];
+    if (!panel) throw new Error('未知的扩展面板');
+    const key = `panelWindow_${kind}`;
+    const stored = (await chrome.storage.session.get(key))[key] || {};
+    if (Number.isInteger(stored.windowId)) {
+        try {
+            await chrome.windows.get(stored.windowId);
+            if (toggle) {
+                await chrome.windows.remove(stored.windowId);
+                await chrome.storage.session.remove(key);
+                return { success: true, open: false };
+            }
+            await chrome.windows.update(stored.windowId, { focused: true });
+            if (Number.isInteger(sourceTabId)) {
+                await chrome.storage.session.set({ [key]: { ...stored, sourceTabId } });
+            }
+            return { success: true, open: true };
+        } catch (_) {
+            await chrome.storage.session.remove(key);
+        }
+    }
+    const created = await chrome.windows.create({
+        url: chrome.runtime.getURL(panel.page), type: 'popup',
+        width: panel.width, height: panel.height, focused: true
+    });
+    if (!Number.isInteger(created?.id)) throw new Error('无法创建扩展窗口');
+    await chrome.storage.session.set({ [key]: { windowId: created.id, sourceTabId } });
+    return { success: true, open: true };
+}
+
+async function closeExtensionPanel(kind) {
+    if (!PANEL_WINDOWS[kind]) throw new Error('未知的扩展面板');
+    await panelWindowTasks.get(kind)?.catch(() => {});
+    const key = `panelWindow_${kind}`;
+    const state = (await chrome.storage.session.get(key))[key];
+    if (Number.isInteger(state?.windowId)) {
+        try { await chrome.windows.remove(state.windowId); } catch (_) { /* Window was already closed. */ }
+    }
+    await chrome.storage.session.remove(key);
+    return { success: true, open: false };
+}
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (!['openExtensionPanel', 'closeExtensionPanel', 'showSelectionTranslation', 'collectorAddCurrentPage'].includes(request?.action)) return;
+    (async () => {
+        if (request.action === 'collectorAddCurrentPage') {
+            if (sender.url !== chrome.runtime.getURL('collector-frame.html')) throw new Error('无效的采集请求来源');
+            const state = (await chrome.storage.session.get('panelWindow_collector')).panelWindow_collector;
+            if (!Number.isInteger(state?.sourceTabId)) throw new Error('原网页已不可用');
+            const response = await chrome.tabs.sendMessage(state.sourceTabId, { action: 'addCurrentPageItem' });
+            if (!response?.success) throw new Error(response?.error || '保存网页失败');
+            return { success: true };
+        }
+        if (!Number.isInteger(sender.tab?.id)) throw new Error('无法确认来源标签页');
+        if (request.action === 'closeExtensionPanel') {
+            if (!['collector', 'translator'].includes(request.payload?.kind)) throw new Error('未知的扩展面板');
+            return closeExtensionPanel(request.payload.kind);
+        }
+        if (request.action === 'showSelectionTranslation') {
+            const sourceText = String(request.payload?.sourceText || '').slice(0, 30000);
+            const translatedText = String(request.payload?.translatedText || '').slice(0, 30000);
+            if (!sourceText) throw new Error('缺少待翻译内容');
+            await chrome.storage.session.set({ selectionTranslation: {
+                sourceText, translatedText, isLoading: request.payload?.isLoading === true
+            } });
+            return openExtensionPanel('selection', sender.tab.id);
+        }
+        if (!['collector', 'translator'].includes(request.payload?.kind)) throw new Error('未知的扩展面板');
+        return openExtensionPanel(request.payload.kind, sender.tab.id, request.payload.toggle === true);
+    })().then(sendResponse).catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+});
+
+chrome.windows?.onRemoved?.addListener(async windowId => {
+    for (const kind of Object.keys(PANEL_WINDOWS)) {
+        const key = `panelWindow_${kind}`;
+        const state = (await chrome.storage.session.get(key))[key];
+        if (state?.windowId !== windowId) continue;
+        await chrome.storage.session.remove(key);
+        if (kind === 'selection') await chrome.storage.session.remove('selectionTranslation');
+    }
+});
 
 const DEEPL_LANGUAGE_MAP = {
     'zh-CN': 'ZH',
@@ -858,7 +965,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return;
     }
 
-    if (!isAllowedDownloadUrl(url)) {
+    if (!isAllowedCollectorImageUrl(url)) {
         sendResponse({ success: false, error: '不允许的图片下载地址' });
         return;
     }

@@ -26,9 +26,12 @@ async function testConfigExport() {
       getElementById() { return status; }
     },
     chrome: {
-      runtime: { getManifest() { return { version: '1.8.2' }; } },
+      runtime: { getManifest() { return { version: '1.8.3' }; } },
       storage: { local: { get(_keys, done) {
-        done({ deeplApiKey: 'secret', geminiApiKey: 'legacy-secret', translateTargetLang: 'en' });
+        assert.ok(Array.isArray(_keys));
+        done({ deeplApiKey: 'secret', geminiApiKey: 'legacy-secret', translateTargetLang: 'en',
+          translationHistory: [{ source: 'private' }], webCollectorItems: [{ text: 'private' }],
+          futureSecret: 'private' });
       } } }
     }
   };
@@ -38,7 +41,21 @@ async function testConfigExport() {
   assert.equal(settings.translateTargetLang, 'en');
   assert.equal(Object.hasOwn(settings, 'deeplApiKey'), false);
   assert.equal(Object.hasOwn(settings, 'geminiApiKey'), false);
+  assert.equal(Object.hasOwn(settings, 'translationHistory'), false);
+  assert.equal(Object.hasOwn(settings, 'webCollectorItems'), false);
+  assert.equal(Object.hasOwn(settings, 'futureSecret'), false);
   assert.match(status.textContent, /API Key/);
+  const imported = context.sanitizeBackupSettings({
+    translateTargetLang: 'ja', screenshotModuleEnabled: false,
+    deeplApiKey: 'untrusted', translationHistory: [{ source: 'private' }],
+    webCollectorItems: [{ text: 'private' }], unexpected: 'value',
+    recordingMaxMinutes: 'not-a-number'
+  });
+  assert.equal(imported.translateTargetLang, 'ja');
+  assert.equal(imported.screenshotModuleEnabled, false);
+  for (const key of ['deeplApiKey', 'translationHistory', 'webCollectorItems', 'unexpected', 'recordingMaxMinutes']) {
+    assert.equal(Object.hasOwn(imported, key), false);
+  }
 }
 
 function testSensitiveTranslationFields() {
@@ -77,30 +94,11 @@ function testSensitiveTranslationFields() {
   assert.equal(translationCalls, 1);
 }
 
-function testSensitivePanelsUseExtensionFrames() {
-  const source = fs.readFileSync('content.js', 'utf8');
-  const functions = [
-    ['showFloatingTranslatorPanel', 'translator-frame.html'],
-    ['ensurePanel', 'collector-frame.html']
-  ];
-  for (const [name, path] of functions) {
-    const body = source.match(new RegExp(`    function ${name}\\(\\) \\{[\\s\\S]*?\\n    \\}`))?.[0];
-    assert.ok(body, `${name} must be present`);
-    const created = [];
-    const context = {
-      FLOATING_TRANSLATOR_PANEL_ID: 'translator-panel', PANEL_ID: 'collector-panel',
-      shouldShowFloatingTranslator: () => true,
-      chrome: { runtime: { getURL: value => `chrome-extension://test/${value}` } },
-      document: {
-        getElementById: () => null,
-        createElement(tag) { const node = { tag, style: {} }; created.push(node); return node; },
-        body: { appendChild() {} }
-      }
-    };
-    vm.runInNewContext(`${body}\n${name}()`, context);
-    assert.equal(created[0]?.tag, 'iframe');
-    assert.equal(created[0]?.src, `chrome-extension://test/${path}`);
-    assert.ok(fs.existsSync(require('node:path').join(__dirname, '..', path)));
+function testSensitivePanelsAreNotWebAccessible() {
+  const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+  const exposed = manifest.web_accessible_resources?.flatMap(entry => entry.resources) || [];
+  for (const path of ['collector-frame.html', 'translator-frame.html', 'panel-frame.css']) {
+    assert.equal(exposed.includes(path), false);
   }
 }
 
@@ -110,14 +108,37 @@ async function testCaptureUsesSenderTab() {
   let recordedTab;
   let sentToTab;
   let activeTabId = 17;
+  const session = new Map();
+  const windows = new Map();
+  const createdUrls = [];
   const chrome = {
-    runtime: { onInstalled: { addListener() {} }, onMessage: { addListener(fn) { listeners.push(fn); } } },
+    runtime: {
+      getURL: path => `chrome-extension://test/${path}`,
+      onInstalled: { addListener() {} }, onMessage: { addListener(fn) { listeners.push(fn); } }
+    },
     contextMenus: { onClicked: { addListener() {} } },
     commands: { onCommand: { addListener() {} } },
-    storage: { local: { get(_keys, done) { done({}); } } },
+    storage: {
+      local: { get(_keys, done) { done({}); } },
+      session: {
+        async get(key) { return { [key]: session.get(key) }; },
+        async set(values) { for (const [key, value] of Object.entries(values)) session.set(key, value); },
+        async remove(key) { session.delete(key); }
+      }
+    },
+    windows: {
+      onRemoved: { addListener() {} },
+      async create(options) { const id = 100 + windows.size; windows.set(id, options); createdUrls.push(options.url); return { id }; },
+      async get(id) { if (!windows.has(id)) throw new Error('closed'); return { id }; },
+      async update(id) { return { id }; },
+      async remove(id) { windows.delete(id); }
+    },
     tabs: {
       captureVisibleTab(windowId, _options, done) { capturedWindow = windowId; done('data:image/png;base64,AA=='); },
-      sendMessage(tabId, _message, done) { sentToTab = tabId; done({ success: true }); },
+      sendMessage(tabId, _message, done) {
+        sentToTab = tabId;
+        return done ? done({ success: true }) : Promise.resolve({ success: true });
+      },
       query(_options, done) { done([{ id: activeTabId, windowId: 42, active: true }]); }
     },
     tabCapture: { getMediaStreamId(options, done) { recordedTab = options.targetTabId; done('stream-id'); } },
@@ -130,10 +151,13 @@ async function testCaptureUsesSenderTab() {
       detach(_tab, done) { done(); }
     }
   };
-  vm.runInNewContext(fs.readFileSync('background.js', 'utf8'), {
+  const context = vm.createContext({
     chrome, URL, URLSearchParams, console: { log() {}, warn() {}, error() {} },
     setTimeout(done) { done(); }
   });
+  vm.runInContext(fs.readFileSync('background.js', 'utf8'), context);
+  assert.equal(vm.runInContext("isAllowedCollectorImageUrl('data:text/html,<script>alert(1)</script>')", context), false);
+  assert.equal(vm.runInContext("isAllowedCollectorImageUrl('data:image/png;base64,AA==')", context), true);
   const send = (action, sender, payload = {}) => new Promise(resolve => {
     const listener = listeners.find(fn => fn({ action, payload }, sender, resolve) === true);
     assert.ok(listener, `missing ${action} listener`);
@@ -153,13 +177,26 @@ async function testCaptureUsesSenderTab() {
   assert.equal(sentToTab, 17);
   assert.equal((await send('captureFullPage', sender)).success, true);
   assert.equal(sentToTab, 17);
+  assert.equal((await send('openExtensionPanel', sender, { kind: 'collector' })).open, true);
+  assert.equal(createdUrls[0], 'chrome-extension://test/collector-frame.html');
+  assert.equal(session.get('panelWindow_collector').sourceTabId, 17);
+  assert.equal((await send('collectorAddCurrentPage', { url: 'chrome-extension://test/collector-frame.html' })).success, true);
+  assert.equal(sentToTab, 17);
+  assert.equal((await send('collectorAddCurrentPage', { url: 'https://example.com/' })).success, false);
+  assert.equal((await send('showSelectionTranslation', sender, {
+    sourceText: 'private source', translatedText: 'private result'
+  })).success, true);
+  assert.equal(createdUrls[1], 'chrome-extension://test/translator-frame.html?mode=selection');
+  assert.equal(session.get('selectionTranslation').translatedText, 'private result');
+  assert.equal(createdUrls.every(url => !url.includes('private')), true);
+  assert.equal((await send('openExtensionPanel', sender, { kind: 'collector', toggle: true })).open, false);
 }
 
 (async () => {
   await testPdfExport();
   await testConfigExport();
   testSensitiveTranslationFields();
-  testSensitivePanelsUseExtensionFrames();
+  testSensitivePanelsAreNotWebAccessible();
   await testCaptureUsesSenderTab();
   console.log('security behavior checks passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });

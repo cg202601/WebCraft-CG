@@ -24,7 +24,7 @@ for (const [googleCode, deeplCode] of addedLanguages) {
   for (const file of ['popup.html', 'options.html']) {
     assertContains(file, `value="${googleCode}"`, `target language ${googleCode} must be selectable`);
   }
-  assertContains('content.js', `'${googleCode}'`, `floating translator target language ${googleCode}`);
+  assertContains('translator-frame.js', `'${googleCode}'`, `translator window target language ${googleCode}`);
   assertContains('background.js', `${googleCode}: '${deeplCode}'`, `DeepL target mapping for ${googleCode}`);
 }
 

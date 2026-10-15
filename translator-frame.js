@@ -17,6 +17,25 @@ const result = document.getElementById('translatedText');
 const status = document.getElementById('status');
 const runButton = document.getElementById('runTranslate');
 const copyButton = document.getElementById('copyResult');
+const selectionMode = new URLSearchParams(location.search).get('mode') === 'selection';
+
+if (selectionMode) {
+  document.querySelector('.panel-header strong').textContent = '选中文字翻译';
+  document.querySelector('.controls').hidden = true;
+  document.querySelector('.actions').hidden = true;
+  sourceText.readOnly = true;
+  sourceText.placeholder = '选中文字';
+  const renderSelection = (value = {}) => {
+    sourceText.value = String(value.sourceText || '');
+    result.textContent = value.isLoading ? '正在翻译...' : String(value.translatedText || '');
+    copyButton.hidden = value.isLoading || !value.translatedText;
+    setStatus(value.isLoading ? '' : value.translatedText ? '翻译完成' : '翻译失败', !value.translatedText && !value.isLoading);
+  };
+  chrome.storage.session.get('selectionTranslation', data => renderSelection(data.selectionTranslation));
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'session' && changes.selectionTranslation) renderSelection(changes.selectionTranslation.newValue);
+  });
+}
 
 for (const [label, code] of languages) {
   const option = document.createElement('option');
@@ -64,6 +83,7 @@ async function translateWithDeepL(text, direction) {
 }
 
 async function translate() {
+  if (selectionMode) return;
   const text = sourceText.value.trim();
   if (!text) {
     setStatus('请输入或粘贴要翻译的文字', true);
@@ -90,7 +110,7 @@ async function translate() {
 }
 
 document.getElementById('closePanel').addEventListener('click', () => {
-  parent.postMessage({ type: 'webcraft-close-translator' }, '*');
+  window.close();
 });
 document.getElementById('pasteText').addEventListener('click', async () => {
   try {

@@ -333,7 +333,7 @@
     <section class="page" id="page-backup">
       <header class="page-header">
         <h2>导入导出配置</h2>
-        <p>换电脑或重新安装前，先导出一次配置。导出文件不包含 DeepL API Key，导入后需重新填写。</p>
+        <p>换电脑或重新安装前，先导出一次配置。导出文件不包含 API Key、翻译历史和采集画布；换设备后需重新填写密钥。</p>
       </header>
       <div class="panel">
         <button class="primary-btn" id="exportConfig">导出配置</button>
@@ -351,6 +351,12 @@
         <p>记录这套工具最近做过什么，后续排查也方便。</p>
       </header>
       <div class="panel changelog">
+        <h3>1.8.3</h3>
+        <ul>
+          <li>采集画布、浮动翻译和选中文字译文改在独立扩展窗口显示，避免网页读取内容或嵌入面板。</li>
+          <li>配置备份仅导出已知设置，默认排除 API Key、翻译历史和采集画布；导入时忽略未知字段。</li>
+          <li>采集画布下载数据链接时校验图片类型，并在保存网页完成后反馈结果。</li>
+        </ul>
         <h3>1.8.2</h3>
         <ul>
           <li>更新 jsPDF 至 4.2.1，修复已公开的依赖漏洞。</li>

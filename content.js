@@ -1254,143 +1254,13 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         return { text, rect };
     }
 
-    function getTranslationPopupPosition(rect) {
-        const margin = 14;
-        const width = Math.min(460, window.innerWidth - margin * 2);
-        const height = Math.min(360, window.innerHeight - margin * 2);
-        const anchorLeft = rect?.left ?? (window.innerWidth - width) / 2;
-        const anchorTop = rect?.top ?? margin;
-        const anchorBottom = rect?.bottom ?? (anchorTop + 24);
-        const centerLeft = anchorLeft + ((rect?.width || width) / 2) - width / 2;
-        const left = Math.min(Math.max(margin, centerLeft), window.innerWidth - width - margin);
-        const spaceAbove = anchorTop - margin;
-        const spaceBelow = window.innerHeight - anchorBottom - margin;
-        let top;
-
-        if (spaceAbove >= Math.min(height, 220) || spaceAbove > spaceBelow) {
-            top = Math.max(margin, anchorTop - height - 10);
-        } else {
-            top = Math.min(anchorBottom + 10, window.innerHeight - height - margin);
-        }
-
-        return {
-            left: Math.round(left),
-            top: Math.round(Math.max(margin, top)),
-            width: Math.round(width),
-            maxHeight: Math.round(height)
-        };
-    }
-
-    function makeTranslationPopupDraggable(popup, handle) {
-        let dragging = false;
-        let offsetX = 0;
-        let offsetY = 0;
-
-        handle.addEventListener('pointerdown', (event) => {
-            if (event.button !== 0) return;
-            dragging = true;
-            offsetX = event.clientX - popup.getBoundingClientRect().left;
-            offsetY = event.clientY - popup.getBoundingClientRect().top;
-            handle.setPointerCapture?.(event.pointerId);
-            event.preventDefault();
+    function showPageTranslationPopup(sourceText, translatedText, _rect, isLoading = false) {
+        chrome.runtime.sendMessage({
+            action: 'showSelectionTranslation',
+            payload: { sourceText, translatedText, isLoading }
+        }, () => {
+            if (chrome.runtime.lastError) console.warn('打开翻译窗口失败:', chrome.runtime.lastError.message);
         });
-
-        handle.addEventListener('pointermove', (event) => {
-            if (!dragging) return;
-            const rect = popup.getBoundingClientRect();
-            const margin = 8;
-            const left = Math.min(Math.max(margin, event.clientX - offsetX), window.innerWidth - rect.width - margin);
-            const top = Math.min(Math.max(margin, event.clientY - offsetY), window.innerHeight - rect.height - margin);
-            popup.style.left = `${left}px`;
-            popup.style.top = `${top}px`;
-        });
-
-        const stopDragging = (event) => {
-            if (!dragging) return;
-            dragging = false;
-            handle.releasePointerCapture?.(event.pointerId);
-        };
-        handle.addEventListener('pointerup', stopDragging);
-        handle.addEventListener('pointercancel', stopDragging);
-    }
-
-    function showPageTranslationPopup(sourceText, translatedText, rect, isLoading = false) {
-        document.getElementById('translator-selection-popup')?.remove();
-
-        const popup = document.createElement('div');
-        popup.id = 'translator-selection-popup';
-        const position = getTranslationPopupPosition(rect);
-        popup.style.cssText = `
-            position: fixed;
-            left: ${position.left}px;
-            top: ${position.top}px;
-            width: ${position.width}px;
-            max-height: ${position.maxHeight}px;
-            z-index: 2147483647;
-            background: rgba(17, 19, 24, 0.96);
-            color: #fff;
-            border: 1px solid rgba(255,255,255,0.14);
-            border-radius: 14px;
-            box-shadow: 0 16px 46px rgba(0,0,0,0.38);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            overflow: hidden;
-            resize: both;
-        `;
-
-        const header = document.createElement('div');
-        header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.1);cursor:move;user-select:none;';
-
-        const title = document.createElement('strong');
-        title.textContent = isLoading ? '翻译中...' : '翻译结果';
-
-        const closeBtn = document.createElement('button');
-        closeBtn.textContent = '×';
-        closeBtn.title = '关闭';
-        closeBtn.style.cssText = 'border:0;background:transparent;color:#fff;font-size:18px;cursor:pointer;line-height:1;';
-        closeBtn.addEventListener('pointerdown', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-        });
-        closeBtn.addEventListener('click', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            popup.remove();
-        });
-
-        const body = document.createElement('div');
-        body.style.cssText = `
-            max-height: ${Math.max(180, position.maxHeight - 45)}px;
-            overflow: auto;
-            padding: 12px;
-        `;
-
-        const result = document.createElement('div');
-        result.textContent = translatedText;
-        result.style.cssText = 'white-space:pre-wrap;word-break:break-word;font-size:15px;';
-
-        const source = document.createElement('div');
-        source.textContent = sourceText;
-        source.style.cssText = 'margin-top:10px;color:rgba(255,255,255,0.58);font-size:12px;white-space:pre-wrap;word-break:break-word;border-top:1px solid rgba(255,255,255,0.12);padding-top:8px;';
-
-        const copyBtn = document.createElement('button');
-        copyBtn.textContent = '复制译文';
-        copyBtn.style.cssText = 'margin-top:10px;border:0;border-radius:7px;background:#5b50d8;color:#fff;padding:6px 10px;cursor:pointer;font-size:12px;';
-        copyBtn.onclick = async event => {
-            if (!event.isTrusted) return;
-            await navigator.clipboard?.writeText(translatedText);
-            copyBtn.textContent = '已复制';
-            setTimeout(() => { copyBtn.textContent = '复制译文'; }, 1200);
-        };
-
-        header.appendChild(title);
-        header.appendChild(closeBtn);
-        popup.appendChild(header);
-        body.appendChild(result);
-        if (!isLoading) body.appendChild(copyBtn);
-        body.appendChild(source);
-        popup.appendChild(body);
-        document.body.appendChild(popup);
-        makeTranslationPopupDraggable(popup, header);
     }
 
     function shouldShowFloatingTranslator() {
@@ -1446,314 +1316,17 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         return handle;
     }
 
-    function createFloatingTranslatorControl(tag, text, value) {
-        const option = document.createElement(tag);
-        option.textContent = text;
-        if (value !== undefined) option.value = value;
-        return option;
-    }
-
-    function setFloatingTranslatorStatus(panel, text, type = '') {
-        const status = panel.querySelector('[data-role="translator-status"]');
-        status.textContent = text;
-        status.style.color = type === 'error' ? '#fca5a5' : type === 'success' ? '#86efac' : 'rgba(255,255,255,0.68)';
-    }
-
-    function setFloatingTranslatorResult(panel, text) {
-        const result = panel.querySelector('[data-role="translator-result"]');
-        const copyBtn = panel.querySelector('[data-role="translator-copy"]');
-        result.textContent = text || '';
-        result.style.display = text ? 'block' : 'none';
-        copyBtn.style.display = text ? 'inline-flex' : 'none';
-    }
-
-    async function translateFloatingPanelText(panel) {
-        const input = panel.querySelector('[data-role="translator-input"]');
-        const engineSelect = panel.querySelector('[data-role="translator-engine"]');
-        const targetSelect = panel.querySelector('[data-role="translator-target"]');
-        const translateBtn = panel.querySelector('[data-role="translator-run"]');
-        const text = input.value.trim();
-
-        if (!text) {
-            setFloatingTranslatorStatus(panel, '请输入或粘贴要翻译的文字', 'error');
-            input.focus();
-            return;
-        }
-
-        translateBtn.disabled = true;
-        setFloatingTranslatorStatus(panel, '正在翻译...');
-        try {
-            await new Promise(resolve => {
-                chrome.storage.local.set({
-                    translateEngine: engineSelect.value,
-                    translateTargetLang: targetSelect.value
-                }, resolve);
-            });
-            targetLang = targetSelect.value || 'auto';
-            const direction = getTranslationDirection(text, {
-                targetLang: targetSelect.value || 'auto'
-            });
-            const translatedText = await translateText(text, direction);
-            setFloatingTranslatorResult(panel, translatedText);
-            setFloatingTranslatorStatus(panel, '翻译完成', 'success');
-        } catch (error) {
-            console.error('浮动翻译失败', error);
-            setFloatingTranslatorStatus(panel, error.message || '翻译失败', 'error');
-        } finally {
-            translateBtn.disabled = false;
-        }
-    }
-
-    function ensureFloatingTranslatorPanel() {
-        let panel = document.getElementById(FLOATING_TRANSLATOR_PANEL_ID);
-        if (panel) return panel;
-
-        panel = document.createElement('section');
-        panel.id = FLOATING_TRANSLATOR_PANEL_ID;
-        panel.style.cssText = `
-            position: fixed;
-            right: 68px;
-            top: 84px;
-            width: min(430px, calc(100vw - 28px));
-            max-height: calc(100vh - 110px);
-            display: none;
-            flex-direction: column;
-            overflow: hidden;
-            z-index: 2147483647;
-            background: rgba(17,19,24,0.97);
-            color: #fff;
-            border: 1px solid rgba(255,255,255,0.14);
-            border-radius: 14px;
-            box-shadow: 0 18px 50px rgba(0,0,0,0.38);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        `;
-
-        const header = document.createElement('div');
-        header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 12px;border-bottom:1px solid rgba(255,255,255,0.1);cursor:move;user-select:none;';
-
-        const title = document.createElement('strong');
-        title.textContent = '浮动翻译';
-        title.style.cssText = 'font-size:14px;';
-
-        const closeBtn = document.createElement('button');
-        closeBtn.type = 'button';
-        closeBtn.textContent = '×';
-        closeBtn.title = '关闭';
-        closeBtn.style.cssText = 'border:0;background:transparent;color:#fff;font-size:20px;line-height:1;cursor:pointer;';
-        closeBtn.addEventListener('pointerdown', event => {
-            event.preventDefault();
-            event.stopPropagation();
-        });
-        closeBtn.addEventListener('click', event => {
-            event.preventDefault();
-            event.stopPropagation();
-            hideFloatingTranslatorPanel();
-        });
-
-        const body = document.createElement('div');
-        body.style.cssText = 'padding:12px;overflow:auto;';
-
-        const controls = document.createElement('div');
-        controls.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;';
-
-        const engineSelect = document.createElement('select');
-        engineSelect.dataset.role = 'translator-engine';
-        engineSelect.style.cssText = 'min-width:0;border:1px solid rgba(255,255,255,0.16);border-radius:8px;background:#252833;color:#fff;padding:8px;font:inherit;font-size:12px;';
-        engineSelect.appendChild(createFloatingTranslatorControl('option', 'Google', 'google'));
-        engineSelect.appendChild(createFloatingTranslatorControl('option', 'DeepL', 'deepl'));
-
-        const targetSelect = document.createElement('select');
-        targetSelect.dataset.role = 'translator-target';
-        targetSelect.style.cssText = engineSelect.style.cssText;
-        [
-            ['自动中英互译', 'auto'],
-            ['中文', 'zh-CN'],
-            ['英语', 'en'],
-            ['日语', 'ja'],
-            ['韩语', 'ko'],
-            ['法语', 'fr'],
-            ['德语', 'de'],
-            ['西班牙语', 'es'],
-            ['俄语', 'ru'],
-            ['波兰语', 'pl'],
-            ['瑞典语', 'sv'],
-            ['马扎尔语 / 匈牙利语', 'hu'],
-            ['克罗地亚语', 'hr'],
-            ['保加利亚语', 'bg'],
-            ['意大利语', 'it'],
-            ['葡萄牙语', 'pt'],
-            ['荷兰语', 'nl'],
-            ['捷克语', 'cs'],
-            ['丹麦语', 'da'],
-            ['芬兰语', 'fi'],
-            ['希腊语', 'el'],
-            ['罗马尼亚语', 'ro'],
-            ['斯洛伐克语', 'sk'],
-            ['斯洛文尼亚语', 'sl'],
-            ['乌克兰语', 'uk'],
-            ['土耳其语', 'tr'],
-            ['阿拉伯语', 'ar']
-        ].forEach(([label, value]) => targetSelect.appendChild(createFloatingTranslatorControl('option', label, value)));
-
-        const input = document.createElement('textarea');
-        input.dataset.role = 'translator-input';
-        input.placeholder = '粘贴或输入要翻译的文字';
-        input.rows = 5;
-        input.style.cssText = `
-            width:100%;
-            min-height:118px;
-            resize:vertical;
-            box-sizing:border-box;
-            border:1px solid rgba(255,255,255,0.16);
-            border-radius:10px;
-            background:#0f1117;
-            color:#fff;
-            padding:10px;
-            outline:none;
-            font:13px/1.55 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        `;
-
-        const actions = document.createElement('div');
-        actions.style.cssText = 'display:grid;grid-template-columns:0.8fr 1.2fr 0.8fr;gap:8px;margin-top:8px;';
-
-        const makeBtn = (text, primary = false) => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.textContent = text;
-            button.style.cssText = `
-                border:0;
-                border-radius:8px;
-                padding:8px 10px;
-                background:${primary ? '#5b50d8' : 'rgba(255,255,255,0.12)'};
-                color:#fff;
-                cursor:pointer;
-                font:700 12px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            `;
-            return button;
-        };
-
-        const pasteBtn = makeBtn('粘贴');
-        const translateBtn = makeBtn('翻译', true);
-        translateBtn.dataset.role = 'translator-run';
-        const clearBtn = makeBtn('清空');
-        const copyBtn = makeBtn('复制译文');
-        copyBtn.dataset.role = 'translator-copy';
-        copyBtn.style.display = 'none';
-        copyBtn.style.marginTop = '8px';
-
-        const result = document.createElement('div');
-        result.dataset.role = 'translator-result';
-        result.style.cssText = `
-            display:none;
-            margin-top:10px;
-            max-height:220px;
-            overflow:auto;
-            border:1px solid rgba(255,255,255,0.12);
-            border-radius:10px;
-            background:rgba(255,255,255,0.06);
-            padding:10px;
-            white-space:pre-wrap;
-            word-break:break-word;
-            font-size:14px;
-            line-height:1.58;
-        `;
-
-        const status = document.createElement('div');
-        status.dataset.role = 'translator-status';
-        status.style.cssText = 'min-height:18px;margin-top:8px;color:rgba(255,255,255,0.68);font-size:12px;text-align:center;';
-
-        pasteBtn.addEventListener('click', async event => {
-            if (!event.isTrusted) return;
-            try {
-                const text = await navigator.clipboard.readText();
-                input.value = text || '';
-                input.focus();
-                if (text) setFloatingTranslatorStatus(panel, '已粘贴');
-            } catch (error) {
-                setFloatingTranslatorStatus(panel, '无法读取剪贴板', 'error');
-            }
-        });
-
-        translateBtn.addEventListener('click', event => {
-            if (event.isTrusted) translateFloatingPanelText(panel);
-        });
-        clearBtn.addEventListener('click', () => {
-            input.value = '';
-            setFloatingTranslatorResult(panel, '');
-            setFloatingTranslatorStatus(panel, '');
-            input.focus();
-        });
-        copyBtn.addEventListener('click', async () => {
-            const text = result.textContent || '';
-            if (!text) return;
-            await navigator.clipboard.writeText(text);
-            setFloatingTranslatorStatus(panel, '译文已复制', 'success');
-        });
-        input.addEventListener('keydown', event => {
-            if (!event.isTrusted) return;
-            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-                event.preventDefault();
-                translateFloatingPanelText(panel);
-            }
-        });
-        engineSelect.addEventListener('change', () => {
-            chrome.storage.local.set({ translateEngine: engineSelect.value });
-        });
-        targetSelect.addEventListener('change', () => {
-            targetLang = targetSelect.value || 'auto';
-            chrome.storage.local.set({ translateTargetLang: targetSelect.value });
-        });
-
-        header.appendChild(title);
-        header.appendChild(closeBtn);
-        controls.appendChild(engineSelect);
-        controls.appendChild(targetSelect);
-        actions.appendChild(pasteBtn);
-        actions.appendChild(translateBtn);
-        actions.appendChild(clearBtn);
-        body.appendChild(controls);
-        body.appendChild(input);
-        body.appendChild(actions);
-        body.appendChild(result);
-        body.appendChild(copyBtn);
-        body.appendChild(status);
-        panel.appendChild(header);
-        panel.appendChild(body);
-        document.body.appendChild(panel);
-        makeTranslationPopupDraggable(panel, header);
-        return panel;
-    }
-
     function hideFloatingTranslatorPanel() {
-        document.getElementById(FLOATING_TRANSLATOR_PANEL_ID)?.remove();
+        chrome.runtime.sendMessage({ action: 'closeExtensionPanel', payload: { kind: 'translator' } });
     }
 
     function showFloatingTranslatorPanel() {
-        if (!shouldShowFloatingTranslator()) return;
-        if (document.getElementById(FLOATING_TRANSLATOR_PANEL_ID)) return;
-        const frame = document.createElement('iframe');
-        frame.id = FLOATING_TRANSLATOR_PANEL_ID;
-        frame.src = chrome.runtime.getURL('translator-frame.html');
-        frame.title = 'WebCraft 浮动翻译';
-        frame.allow = 'clipboard-read; clipboard-write';
-        frame.style.cssText = 'position:fixed;right:68px;top:84px;width:min(430px,calc(100vw - 28px));height:min(530px,calc(100vh - 100px));border:0;border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,0.38);z-index:2147483647;background:#111318;';
-        document.body.appendChild(frame);
+        chrome.runtime.sendMessage({ action: 'openExtensionPanel', payload: { kind: 'translator' } });
     }
 
     function toggleFloatingTranslatorPanel() {
-        if (!shouldShowFloatingTranslator()) return;
-        if (document.getElementById(FLOATING_TRANSLATOR_PANEL_ID)) {
-            hideFloatingTranslatorPanel();
-        } else {
-            showFloatingTranslatorPanel();
-        }
+        chrome.runtime.sendMessage({ action: 'openExtensionPanel', payload: { kind: 'translator', toggle: true } });
     }
-
-    window.addEventListener('message', event => {
-        const frame = document.getElementById(FLOATING_TRANSLATOR_PANEL_ID);
-        if (event.origin !== chrome.runtime.getURL('').replace(/\/$/, '') || event.source !== frame?.contentWindow) return;
-        if (event.data?.type === 'webcraft-close-translator') hideFloatingTranslatorPanel();
-    });
 
     async function handlePageSelectionTranslation(selectionInfo) {
         if (!isEnabled || isTranslating) return;
@@ -2119,12 +1692,16 @@ async function doFullPageCapture(name, format, tool, options = {}) {
 
     function saveItems(items, callback) {
         chrome.storage.local.set({ [STORAGE_KEY]: items }, () => {
+            if (chrome.runtime.lastError) {
+                callback?.(new Error(chrome.runtime.lastError.message));
+                return;
+            }
             updateHandleCount(items.length);
-            if (callback) callback();
+            callback?.(null);
         });
     }
 
-    function addCollectorItem(item) {
+    function addCollectorItem(item, callback) {
         getItems((items) => {
             items.unshift({
                 id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -2133,10 +1710,15 @@ async function doFullPageCapture(name, format, tool, options = {}) {
                 createdAt: new Date().toISOString(),
                 ...item
             });
-            saveItems(items.slice(0, 200), () => {
+            saveItems(items.slice(0, 200), error => {
+                if (error) {
+                    callback?.(error);
+                    return;
+                }
                 renderPanel();
                 if (collectorOpenOnAdd) showPanel();
                 showActionFeedback('已加入画布');
+                callback?.(null);
             });
         });
     }
@@ -2256,9 +1838,10 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         return isSafeCollectorUrl(icon.href, ['http:', 'https:', 'data:']) ? icon.href : '';
     }
 
-    function addCurrentPageItem(extraText = '') {
+    function addCurrentPageItem(extraText = '', callback) {
         if (!collectorPageSaveEnabled) {
             showActionFeedback('网页收藏已关闭');
+            callback?.(new Error('网页收藏已关闭'));
             return;
         }
         addCollectorItem({
@@ -2268,7 +1851,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             excerpt: extraText || getPageDescription(),
             favicon: getPageFavicon(),
             domain: location.hostname
-        });
+        }, callback);
     }
 
     function removeItem(id) {
@@ -2653,43 +2236,17 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         handle.textContent = count > 0 ? `画布 ${count}` : '画布';
     }
 
-    function ensurePanel() {
-        let panel = document.getElementById(PANEL_ID);
-        if (panel) return panel;
-
-        panel = document.createElement('iframe');
-        panel.id = PANEL_ID;
-        panel.src = chrome.runtime.getURL('collector-frame.html');
-        panel.title = 'WebCraft 采集画布';
-        panel.allow = 'clipboard-read; clipboard-write';
-        panel.style.cssText = 'position:fixed;top:0;right:0;width:min(380px,calc(100vw - 24px));height:100vh;border:0;z-index:2147483646;box-shadow:-10px 0 30px rgba(0,0,0,0.35);background:#111318;';
-
-        document.body.appendChild(panel);
-        return panel;
-    }
-
     function showPanel() {
-        ensurePanel();
+        chrome.runtime.sendMessage({ action: 'openExtensionPanel', payload: { kind: 'collector' } });
     }
 
     function hidePanel() {
-        document.getElementById(PANEL_ID)?.remove();
+        chrome.runtime.sendMessage({ action: 'closeExtensionPanel', payload: { kind: 'collector' } });
     }
 
     function togglePanel() {
-        if (document.getElementById(PANEL_ID)) {
-            hidePanel();
-        } else {
-            showPanel();
-        }
+        chrome.runtime.sendMessage({ action: 'openExtensionPanel', payload: { kind: 'collector', toggle: true } });
     }
-
-    window.addEventListener('message', event => {
-        const frame = document.getElementById(PANEL_ID);
-        if (event.origin !== chrome.runtime.getURL('').replace(/\/$/, '') || event.source !== frame?.contentWindow) return;
-        if (event.data?.type === 'webcraft-close-collector') hidePanel();
-        if (event.data?.type === 'webcraft-add-current-page') addCurrentPageItem();
-    });
 
     function togglePanelFromShortcut() {
         const now = Date.now();
@@ -2722,240 +2279,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
     }
 
     function renderPanel() {
-        // Collector data is rendered only in the extension-origin iframe.
-        return;
-        const panel = ensurePanel();
-        getItems((items) => {
-            panel.textContent = '';
-
-            const header = document.createElement('div');
-            header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px;border-bottom:1px solid rgba(255,255,255,0.1);';
-
-            const title = document.createElement('div');
-            const titleStrong = document.createElement('strong');
-            titleStrong.textContent = '采集画布';
-            titleStrong.style.fontSize = '15px';
-            const titleMeta = document.createElement('div');
-            titleMeta.textContent = `${items.length} 条内容`;
-            titleMeta.style.cssText = 'font-size:12px;color:#94a3b8;margin-top:2px;';
-            title.appendChild(titleStrong);
-            title.appendChild(titleMeta);
-
-            const close = createButton('×', '关闭', hidePanel);
-            close.style.fontSize = '18px';
-            close.style.padding = '4px 9px';
-
-            header.appendChild(title);
-            header.appendChild(close);
-
-            const actions = document.createElement('div');
-            actions.style.cssText = 'display:flex;gap:8px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.08);flex-wrap:wrap;';
-            if (collectorPageSaveEnabled) {
-                actions.appendChild(createButton('存网页', '把当前页面加入采集画布', () => addCurrentPageItem(), 'primary'));
-            }
-            actions.appendChild(createButton('导出图片', '下载画布里的所有图片', exportAllImages, 'primary'));
-            actions.appendChild(createButton('导出 MD', '导出 Markdown', exportMarkdown, 'primary'));
-            actions.appendChild(createButton('复制全部', '复制全部为 Markdown', copyAllMarkdown));
-            actions.appendChild(createButton('导出 JSON', '导出原始采集数据', exportJson));
-            actions.appendChild(createButton('导入 JSON', '导入采集画布 JSON', importJson));
-            actions.appendChild(createButton('去重', '移除重复采集项', dedupeItems));
-            actions.appendChild(createButton('清空', '清空画布', clearItems));
-
-            const searchWrap = document.createElement('div');
-            searchWrap.style.cssText = 'padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.08);';
-            const search = document.createElement('input');
-            search.type = 'search';
-            search.placeholder = '搜索文字、链接、来源...';
-            search.value = collectorFilter;
-            search.style.cssText = 'width:100%;box-sizing:border-box;border:1px solid rgba(255,255,255,0.12);border-radius:8px;background:rgba(255,255,255,0.08);color:#fff;padding:8px 10px;font-size:13px;outline:none;';
-            searchWrap.appendChild(search);
-
-            const typeFilters = document.createElement('div');
-            typeFilters.style.cssText = 'display:flex;gap:6px;margin-top:8px;overflow:auto;padding-bottom:1px;';
-            const counts = items.reduce((acc, item) => {
-                const type = getCollectorItemType(item);
-                acc[type] = (acc[type] || 0) + 1;
-                return acc;
-            }, {});
-            const availableTypes = getVisibleCollectorTypeOptions();
-            ['all', ...availableTypes].forEach(type => {
-                const button = createButton(
-                    `${getCollectorTypeLabel(type)} ${type === 'all' ? items.length : (counts[type] || 0)}`,
-                    `只看${getCollectorTypeLabel(type)}`,
-                    () => {
-                        collectorTypeFilter = type;
-                        renderPanel();
-                    },
-                    collectorTypeFilter === type ? 'primary' : 'default'
-                );
-                button.style.padding = '5px 8px';
-                typeFilters.appendChild(button);
-            });
-            if (availableTypes.length) searchWrap.appendChild(typeFilters);
-
-            const dropZone = document.createElement('div');
-            dropZone.tabIndex = 0;
-            dropZone.textContent = '点击粘贴剪贴板图片，或拖放图片到这里';
-            dropZone.style.cssText = 'margin-top:8px;border:1px dashed rgba(255,255,255,0.18);border-radius:8px;color:#cbd5e1;background:rgba(255,255,255,0.045);padding:9px 10px;text-align:center;font-size:12px;outline:none;';
-            dropZone.addEventListener('click', event => {
-                if (event.isTrusted) addClipboardImages();
-            });
-            dropZone.addEventListener('dragover', (event) => {
-                event.preventDefault();
-                dropZone.style.borderColor = 'rgba(168,181,255,0.72)';
-                dropZone.style.background = 'rgba(91,80,216,0.18)';
-            });
-            dropZone.addEventListener('dragleave', () => {
-                dropZone.style.borderColor = 'rgba(255,255,255,0.18)';
-                dropZone.style.background = 'rgba(255,255,255,0.045)';
-            });
-            dropZone.addEventListener('drop', async (event) => {
-                event.preventDefault();
-                dropZone.style.borderColor = 'rgba(255,255,255,0.18)';
-                dropZone.style.background = 'rgba(255,255,255,0.045)';
-                await addImageFiles(event.dataTransfer?.files);
-            });
-            dropZone.addEventListener('paste', async (event) => {
-                await addImageFiles(event.clipboardData?.files);
-            });
-            searchWrap.appendChild(dropZone);
-
-            const list = document.createElement('div');
-            list.style.cssText = 'flex:1;overflow:auto;padding:12px 14px;display:grid;gap:10px;align-content:start;';
-
-            const emptyFiltered = document.createElement('div');
-            emptyFiltered.textContent = '没有匹配内容';
-            emptyFiltered.style.cssText = 'display:none;color:#94a3b8;font-size:13px;line-height:1.6;padding:20px 4px;';
-
-            const applyPanelFilter = () => {
-                collectorFilter = search.value.trim().toLowerCase();
-                let visibleCount = 0;
-                list.querySelectorAll('[data-collector-search]').forEach(card => {
-                    const matchedSearch = !collectorFilter || card.dataset.collectorSearch.includes(collectorFilter);
-                    const matchedType = collectorTypeFilter === 'all' || card.dataset.collectorType === collectorTypeFilter;
-                    const matched = matchedSearch && matchedType;
-                    card.style.display = matched ? '' : 'none';
-                    if (matched) visibleCount += 1;
-                });
-                emptyFiltered.style.display = items.length && visibleCount === 0 ? 'block' : 'none';
-                titleMeta.textContent = collectorFilter || collectorTypeFilter !== 'all'
-                    ? `${visibleCount}/${items.length} 条内容`
-                    : `${items.length} 条内容`;
-            };
-            search.addEventListener('input', applyPanelFilter);
-
-            if (!items.length) {
-                const empty = document.createElement('div');
-                empty.textContent = '选中文字、图片或链接，点“采集”加入这里。';
-                empty.style.cssText = 'color:#94a3b8;font-size:13px;line-height:1.6;padding:20px 4px;';
-                list.appendChild(empty);
-            } else {
-                getOrderedItems(items).forEach(item => {
-                    const itemType = getCollectorItemType(item);
-                    const card = document.createElement('article');
-                    card.style.cssText = `background:${item.pinned ? 'rgba(91,80,216,0.16)' : 'rgba(255,255,255,0.07)'};border:1px solid ${item.pinned ? 'rgba(168,181,255,0.35)' : 'rgba(255,255,255,0.08)'};border-radius:9px;padding:10px;`;
-                    card.dataset.collectorSearch = getItemSearchText(item);
-                    card.dataset.collectorType = itemType;
-
-                    const typeLabel = document.createElement('div');
-                    typeLabel.textContent = `${item.pinned ? '置顶 · ' : ''}${getCollectorTypeLabel(itemType)}`;
-                    typeLabel.style.cssText = 'display:inline-flex;margin-bottom:7px;padding:2px 6px;border-radius:999px;background:rgba(91,80,216,0.35);font-size:11px;color:#d9ddff;';
-
-                    let contentNode;
-                    if (item.type === 'image') {
-                        contentNode = document.createElement('div');
-                        const img = document.createElement('img');
-                        img.src = item.src;
-                        img.alt = item.alt || '';
-                        img.style.cssText = 'width:100%;max-height:160px;object-fit:contain;border-radius:7px;background:rgba(255,255,255,0.06);';
-                        const caption = document.createElement('div');
-                        caption.textContent = item.alt || item.src;
-                        caption.style.cssText = 'font-size:12px;color:#cbd5e1;margin-top:7px;word-break:break-word;';
-                        contentNode.appendChild(img);
-                        contentNode.appendChild(caption);
-                    } else if (item.type === 'page') {
-                        contentNode = document.createElement('div');
-                        const pageLink = document.createElement('a');
-                        pageLink.href = isSafeCollectorUrl(item.href, ['http:', 'https:']) ? item.href : '#';
-                        pageLink.target = '_blank';
-                        pageLink.rel = 'noopener noreferrer';
-                        pageLink.style.cssText = 'display:flex;align-items:center;gap:8px;color:#f8fafc;font-size:13px;font-weight:700;line-height:1.45;word-break:break-word;text-decoration:none;';
-                        if (item.favicon) {
-                            const favicon = document.createElement('img');
-                            favicon.src = item.favicon;
-                            favicon.alt = '';
-                            favicon.style.cssText = 'width:18px;height:18px;border-radius:4px;object-fit:cover;flex:0 0 auto;background:rgba(255,255,255,0.08);';
-                            pageLink.appendChild(favicon);
-                        }
-                        const pageTitle = document.createElement('span');
-                        pageTitle.textContent = item.text || item.href;
-                        pageLink.appendChild(pageTitle);
-                        const domain = document.createElement('div');
-                        domain.textContent = item.domain || '';
-                        domain.style.cssText = 'font-size:12px;color:#a8b5ff;margin-top:5px;word-break:break-word;';
-                        const excerpt = document.createElement('div');
-                        excerpt.textContent = item.excerpt || '';
-                        excerpt.style.cssText = `display:${item.excerpt ? 'block' : 'none'};font-size:12px;color:#cbd5e1;line-height:1.5;margin-top:7px;white-space:pre-wrap;word-break:break-word;max-height:86px;overflow:auto;`;
-                        contentNode.appendChild(pageLink);
-                        contentNode.appendChild(domain);
-                        contentNode.appendChild(excerpt);
-                    } else if (item.type === 'link') {
-                        contentNode = document.createElement('a');
-                        contentNode.href = isSafeCollectorUrl(item.href, ['http:', 'https:']) ? item.href : '#';
-                        contentNode.target = '_blank';
-                        contentNode.rel = 'noopener noreferrer';
-                        contentNode.textContent = item.text || item.href;
-                        contentNode.style.cssText = 'display:block;color:#a8b5ff;font-size:13px;line-height:1.55;word-break:break-word;text-decoration:none;';
-                    } else {
-                        contentNode = document.createElement('div');
-                        contentNode.textContent = item.text;
-                        contentNode.style.cssText = 'font-size:13px;line-height:1.55;white-space:pre-wrap;word-break:break-word;max-height:140px;overflow:auto;';
-                    }
-
-                    const meta = document.createElement('div');
-                    meta.textContent = `${item.title || '未命名页面'} · ${new Date(item.createdAt).toLocaleString()}`;
-                    meta.style.cssText = 'color:#94a3b8;font-size:11px;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
-
-                    const note = document.createElement('textarea');
-                    note.placeholder = '备注...';
-                    note.value = item.note || '';
-                    note.rows = 2;
-                    note.style.cssText = 'width:100%;box-sizing:border-box;margin-top:8px;border:1px solid rgba(255,255,255,0.1);border-radius:7px;background:rgba(255,255,255,0.06);color:#fff;padding:7px 8px;font-size:12px;line-height:1.4;resize:vertical;outline:none;font-family:inherit;';
-                    let noteTimer = null;
-                    note.addEventListener('input', () => {
-                        clearTimeout(noteTimer);
-                        noteTimer = setTimeout(() => {
-                            updateItem(item.id, { note: note.value.trim() }, () => {
-                                getItems(items => updateHandleCount(items.length));
-                            });
-                        }, 500);
-                    });
-
-                    const row = document.createElement('div');
-                    row.style.cssText = 'display:flex;gap:8px;margin-top:9px;flex-wrap:wrap;';
-                    row.appendChild(createButton(item.pinned ? '取消置顶' : '置顶', item.pinned ? '取消置顶' : '置顶此条', () => togglePinned(item), item.pinned ? 'primary' : 'default'));
-                    row.appendChild(createButton('复制', '复制内容', async () => {
-                        await navigator.clipboard?.writeText(getItemText(item));
-                    }));
-                    row.appendChild(createButton('来源', '打开来源页面', () => openSafeCollectorUrl(item.url || location.href)));
-                    row.appendChild(createButton('删除', '删除此条', () => removeItem(item.id)));
-
-                    card.appendChild(typeLabel);
-                    card.appendChild(contentNode);
-                    card.appendChild(meta);
-                    card.appendChild(note);
-                    card.appendChild(row);
-                    list.appendChild(card);
-                });
-            }
-
-            panel.appendChild(header);
-            panel.appendChild(actions);
-            panel.appendChild(searchWrap);
-            panel.appendChild(list);
-            list.appendChild(emptyFiltered);
-            applyPanelFilter();
-        });
+        // Canvas data is rendered by collector-frame.js in an extension window.
     }
 
     function removeActionBar() {
@@ -3237,6 +2561,12 @@ async function doFullPageCapture(name, format, tool, options = {}) {
     });
 
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        if (request.action === 'addCurrentPageItem') {
+            addCurrentPageItem('', error => sendResponse?.(error
+                ? { success: false, error: error.message }
+                : { success: true }));
+            return true;
+        }
         if (request.action === 'toggleCollectorCanvas') {
             togglePanelFromShortcut();
             sendResponse?.({ success: true });
