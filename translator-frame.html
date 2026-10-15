@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WebCraft 浮动翻译</title>
+  <link rel="stylesheet" href="panel-frame.css">
+</head>
+<body class="translator-frame">
+  <header class="panel-header">
+    <strong>浮动翻译</strong>
+    <button id="closePanel" type="button" aria-label="关闭">×</button>
+  </header>
+  <main class="panel-body">
+    <div class="controls">
+      <label>引擎
+        <select id="engine">
+          <option value="google">Google</option>
+          <option value="deepl">DeepL</option>
+        </select>
+      </label>
+      <label>目标语言
+        <select id="target"></select>
+      </label>
+    </div>
+    <textarea id="sourceText" rows="5" placeholder="粘贴或输入要翻译的文字"></textarea>
+    <div class="actions">
+      <button id="pasteText" type="button">粘贴</button>
+      <button id="runTranslate" type="button" class="primary">翻译</button>
+      <button id="clearText" type="button">清空</button>
+    </div>
+    <div id="translatedText" class="translated-result" aria-live="polite"></div>
+    <button id="copyResult" type="button" hidden>复制译文</button>
+    <p id="status" role="status"></p>
+  </main>
+  <script src="translator-frame.js"></script>
+</body>
+</html>

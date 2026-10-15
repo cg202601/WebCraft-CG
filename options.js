@@ -178,6 +178,8 @@ function renderHistory(history) {
 function exportConfig() {
   chrome.storage.local.get(null, (settings) => {
     const exportSettings = { ...settings };
+    delete exportSettings.deeplApiKey;
+    delete exportSettings.geminiApiKey;
 
     const payload = {
       name: 'WebCraft 网页工坊配置',
@@ -192,7 +194,7 @@ function exportConfig() {
     a.download = `WebCraft网页工坊配置-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showStatus('backupStatus', '配置已导出');
+    showStatus('backupStatus', '配置已导出，API Key 未包含在文件中');
   });
 }
 

@@ -287,7 +287,8 @@ function createCaptureControlPanel() {
     `;
     stopBtn.onmouseover = () => stopBtn.style.transform = 'scale(1.02)';
     stopBtn.onmouseout = () => stopBtn.style.transform = 'scale(1)';
-    stopBtn.onclick = () => {
+    stopBtn.onclick = event => {
+        if (!event.isTrusted) return;
         captureStopRequested = true;
         stopBtn.textContent = '停止截图';
         stopBtn.style.background = '#666';
@@ -1177,6 +1178,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
      */
     async function handleTranslation(element) {
         if (isTranslating) return;
+        if (isSensitiveTranslationTarget(element)) return;
 
         const selectionInfo = getSelectedTextInfo(element);
         let text = selectionInfo?.text || getInputText(element);
@@ -1246,7 +1248,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             ? range.commonAncestorContainer
             : range.commonAncestorContainer.parentElement;
 
-        if (container && isInputElement(container)) return null;
+        if (container && (isInputElement(container) || isSensitiveTranslationTarget(container))) return null;
 
         const rect = range.getBoundingClientRect();
         return { text, rect };
@@ -1373,7 +1375,8 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         const copyBtn = document.createElement('button');
         copyBtn.textContent = '复制译文';
         copyBtn.style.cssText = 'margin-top:10px;border:0;border-radius:7px;background:#5b50d8;color:#fff;padding:6px 10px;cursor:pointer;font-size:12px;';
-        copyBtn.onclick = async () => {
+        copyBtn.onclick = async event => {
+            if (!event.isTrusted) return;
             await navigator.clipboard?.writeText(translatedText);
             copyBtn.textContent = '已复制';
             setTimeout(() => { copyBtn.textContent = '复制译文'; }, 1200);
@@ -1436,7 +1439,9 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             writing-mode: vertical-rl;
             letter-spacing: 0;
         `;
-        handle.addEventListener('click', () => toggleFloatingTranslatorPanel(true));
+        handle.addEventListener('click', event => {
+            if (event.isTrusted) toggleFloatingTranslatorPanel(true);
+        });
         document.body.appendChild(handle);
         return handle;
     }
@@ -1657,7 +1662,8 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         status.dataset.role = 'translator-status';
         status.style.cssText = 'min-height:18px;margin-top:8px;color:rgba(255,255,255,0.68);font-size:12px;text-align:center;';
 
-        pasteBtn.addEventListener('click', async () => {
+        pasteBtn.addEventListener('click', async event => {
+            if (!event.isTrusted) return;
             try {
                 const text = await navigator.clipboard.readText();
                 input.value = text || '';
@@ -1668,7 +1674,9 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             }
         });
 
-        translateBtn.addEventListener('click', () => translateFloatingPanelText(panel));
+        translateBtn.addEventListener('click', event => {
+            if (event.isTrusted) translateFloatingPanelText(panel);
+        });
         clearBtn.addEventListener('click', () => {
             input.value = '';
             setFloatingTranslatorResult(panel, '');
@@ -1682,6 +1690,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             setFloatingTranslatorStatus(panel, '译文已复制', 'success');
         });
         input.addEventListener('keydown', event => {
+            if (!event.isTrusted) return;
             if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
                 event.preventDefault();
                 translateFloatingPanelText(panel);
@@ -1716,50 +1725,35 @@ async function doFullPageCapture(name, format, tool, options = {}) {
     }
 
     function hideFloatingTranslatorPanel() {
-        const panel = document.getElementById(FLOATING_TRANSLATOR_PANEL_ID);
-        if (panel) panel.style.display = 'none';
+        document.getElementById(FLOATING_TRANSLATOR_PANEL_ID)?.remove();
     }
 
-    async function showFloatingTranslatorPanel(tryPaste = false) {
+    function showFloatingTranslatorPanel() {
         if (!shouldShowFloatingTranslator()) return;
-        const panel = ensureFloatingTranslatorPanel();
-        const input = panel.querySelector('[data-role="translator-input"]');
-        const engineSelect = panel.querySelector('[data-role="translator-engine"]');
-        const targetSelect = panel.querySelector('[data-role="translator-target"]');
-
-        chrome.storage.local.get(['translateEngine', 'translateTargetLang'], (settings) => {
-            engineSelect.value = settings.translateEngine || 'google';
-            targetSelect.value = settings.translateTargetLang || targetLang || 'auto';
-        });
-
-        panel.style.display = 'flex';
-        panel.style.right = panel.style.right || '68px';
-        panel.style.top = panel.style.top || '84px';
-
-        if (tryPaste) {
-            try {
-                const text = await navigator.clipboard?.readText();
-                if (text && !input.value.trim()) {
-                    input.value = text;
-                    setFloatingTranslatorStatus(panel, '已粘贴剪贴板文字');
-                }
-            } catch (error) {
-                setFloatingTranslatorStatus(panel, '可以手动粘贴或输入文字');
-            }
-        }
-
-        setTimeout(() => input?.focus(), 0);
+        if (document.getElementById(FLOATING_TRANSLATOR_PANEL_ID)) return;
+        const frame = document.createElement('iframe');
+        frame.id = FLOATING_TRANSLATOR_PANEL_ID;
+        frame.src = chrome.runtime.getURL('translator-frame.html');
+        frame.title = 'WebCraft 浮动翻译';
+        frame.allow = 'clipboard-read; clipboard-write';
+        frame.style.cssText = 'position:fixed;right:68px;top:84px;width:min(430px,calc(100vw - 28px));height:min(530px,calc(100vh - 100px));border:0;border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,0.38);z-index:2147483647;background:#111318;';
+        document.body.appendChild(frame);
     }
 
-    function toggleFloatingTranslatorPanel(tryPaste = false) {
+    function toggleFloatingTranslatorPanel() {
         if (!shouldShowFloatingTranslator()) return;
-        const panel = ensureFloatingTranslatorPanel();
-        if (panel.style.display === 'flex') {
+        if (document.getElementById(FLOATING_TRANSLATOR_PANEL_ID)) {
             hideFloatingTranslatorPanel();
         } else {
-            showFloatingTranslatorPanel(tryPaste);
+            showFloatingTranslatorPanel();
         }
     }
+
+    window.addEventListener('message', event => {
+        const frame = document.getElementById(FLOATING_TRANSLATOR_PANEL_ID);
+        if (event.origin !== chrome.runtime.getURL('').replace(/\/$/, '') || event.source !== frame?.contentWindow) return;
+        if (event.data?.type === 'webcraft-close-translator') hideFloatingTranslatorPanel();
+    });
 
     async function handlePageSelectionTranslation(selectionInfo) {
         if (!isEnabled || isTranslating) return;
@@ -1858,7 +1852,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         if (tagName === 'input') {
             const type = (element.type || '').toLowerCase();
             // 允许更多类型
-            const textTypes = ['text', 'search', 'email', 'url', 'tel', 'password', ''];
+            const textTypes = ['text', 'search', 'email', 'url', 'tel', ''];
             return textTypes.includes(type);
         }
 
@@ -1888,6 +1882,16 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         }
 
         return false;
+    }
+
+    function isSensitiveTranslationTarget(element) {
+        const field = element?.closest?.('input, textarea, [contenteditable]');
+        if (!field) return false;
+        if (field.tagName === 'INPUT' && field.type?.toLowerCase() === 'password') return true;
+        const autocomplete = (field.getAttribute('autocomplete') || '').toLowerCase().split(/\s+/);
+        return autocomplete.some(value =>
+            ['current-password', 'new-password', 'one-time-code'].includes(value) || value.startsWith('cc-')
+        );
     }
 
     /**
@@ -1921,6 +1925,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
     /**
      * 键盘事件处理�?     */
     function handleKeyDown(event) {
+        if (!event.isTrusted) return;
         if (handledKeyEvents.has(event)) return;
         handledKeyEvents.add(event);
 
@@ -1928,6 +1933,10 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         if (event.isComposing || event.repeat) return;
 
         let element = event.target;
+        if (isSensitiveTranslationTarget(element)) {
+            spaceCount = 0;
+            return;
+        }
 
         if (isInputElement(element)) {
             element = getEditableElement(element);
@@ -2624,7 +2633,9 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             handle.style.background = 'rgba(17, 19, 24, 0.72)';
             handle.style.transform = 'translateY(-50%)';
         });
-        handle.addEventListener('click', togglePanel);
+        handle.addEventListener('click', event => {
+            if (event.isTrusted) togglePanel();
+        });
         document.body.appendChild(handle);
         updateHandleCount();
         return handle;
@@ -2646,51 +2657,39 @@ async function doFullPageCapture(name, format, tool, options = {}) {
         let panel = document.getElementById(PANEL_ID);
         if (panel) return panel;
 
-        panel = document.createElement('aside');
+        panel = document.createElement('iframe');
         panel.id = PANEL_ID;
-        panel.style.cssText = `
-            position: fixed;
-            top: 0;
-            right: 0;
-            width: min(360px, calc(100vw - 24px));
-            height: 100vh;
-            background: #111318;
-            color: #f8fafc;
-            z-index: 2147483646;
-            box-shadow: -10px 0 30px rgba(0,0,0,0.35);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            transform: translateX(102%);
-            transition: transform 0.22s ease;
-            display: flex;
-            flex-direction: column;
-            border-left: 1px solid rgba(255,255,255,0.12);
-        `;
+        panel.src = chrome.runtime.getURL('collector-frame.html');
+        panel.title = 'WebCraft 采集画布';
+        panel.allow = 'clipboard-read; clipboard-write';
+        panel.style.cssText = 'position:fixed;top:0;right:0;width:min(380px,calc(100vw - 24px));height:100vh;border:0;z-index:2147483646;box-shadow:-10px 0 30px rgba(0,0,0,0.35);background:#111318;';
 
         document.body.appendChild(panel);
-        renderPanel();
         return panel;
     }
 
     function showPanel() {
-        const panel = ensurePanel();
-        requestAnimationFrame(() => {
-            panel.style.transform = 'translateX(0)';
-        });
+        ensurePanel();
     }
 
     function hidePanel() {
-        const panel = document.getElementById(PANEL_ID);
-        if (panel) panel.style.transform = 'translateX(102%)';
+        document.getElementById(PANEL_ID)?.remove();
     }
 
     function togglePanel() {
-        const panel = ensurePanel();
-        if (panel.style.transform === 'translateX(0px)' || panel.style.transform === 'translateX(0)') {
+        if (document.getElementById(PANEL_ID)) {
             hidePanel();
         } else {
             showPanel();
         }
     }
+
+    window.addEventListener('message', event => {
+        const frame = document.getElementById(PANEL_ID);
+        if (event.origin !== chrome.runtime.getURL('').replace(/\/$/, '') || event.source !== frame?.contentWindow) return;
+        if (event.data?.type === 'webcraft-close-collector') hidePanel();
+        if (event.data?.type === 'webcraft-add-current-page') addCurrentPageItem();
+    });
 
     function togglePanelFromShortcut() {
         const now = Date.now();
@@ -2716,11 +2715,15 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             white-space: nowrap;
             font-family: inherit;
         `;
-        button.addEventListener('click', onClick);
+        button.addEventListener('click', event => {
+            if (event.isTrusted) onClick(event);
+        });
         return button;
     }
 
     function renderPanel() {
+        // Collector data is rendered only in the extension-origin iframe.
+        return;
         const panel = ensurePanel();
         getItems((items) => {
             panel.textContent = '';
@@ -2794,7 +2797,9 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             dropZone.tabIndex = 0;
             dropZone.textContent = '点击粘贴剪贴板图片，或拖放图片到这里';
             dropZone.style.cssText = 'margin-top:8px;border:1px dashed rgba(255,255,255,0.18);border-radius:8px;color:#cbd5e1;background:rgba(255,255,255,0.045);padding:9px 10px;text-align:center;font-size:12px;outline:none;';
-            dropZone.addEventListener('click', addClipboardImages);
+            dropZone.addEventListener('click', event => {
+                if (event.isTrusted) addClipboardImages();
+            });
             dropZone.addEventListener('dragover', (event) => {
                 event.preventDefault();
                 dropZone.style.borderColor = 'rgba(168,181,255,0.72)';
@@ -3099,6 +3104,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
                 button.style.transform = 'translateY(0)';
             });
             button.addEventListener('click', (event) => {
+                if (!event.isTrusted) return;
                 event.preventDefault();
                 event.stopPropagation();
                 action.handler();
@@ -3203,6 +3209,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
     }, true);
 
     document.addEventListener('keydown', (event) => {
+        if (!event.isTrusted) return;
         const isCollectorShortcut = event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey && event.key.toLowerCase() === 'q';
         const isSelectionActionsShortcut = event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === 'w';
         if (!isCollectorShortcut && !isSelectionActionsShortcut) return;
@@ -3339,6 +3346,7 @@ async function doFullPageCapture(name, format, tool, options = {}) {
             font-family:inherit;
         `;
         button.addEventListener('click', (event) => {
+            if (!event.isTrusted) return;
             event.preventDefault();
             event.stopPropagation();
             onClick();
@@ -3462,7 +3470,9 @@ function updateAutoCapturePanel(statusText = '') {
             'font: inherit',
             'font-weight: 600'
         ].join(';');
-        stopBtn.addEventListener('click', () => stopAutoCaptureLoop('\u5df2\u505c\u6b62\u81ea\u52a8\u622a\u56fe'));
+        stopBtn.addEventListener('click', event => {
+            if (event.isTrusted) stopAutoCaptureLoop('\u5df2\u505c\u6b62\u81ea\u52a8\u622a\u56fe');
+        });
         panel.appendChild(stopBtn);
         document.body.appendChild(panel);
     }
@@ -4247,6 +4257,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         btn.title = isPlayer ? '\u4e0b\u8f7d\u5f53\u524d\u89c6\u9891\u7f29\u7565\u56fe' : '\u4e0b\u8f7d\u6700\u9ad8\u6e05\u7f29\u7565\u56fe';
         btn.dataset.videoId = videoId;
         btn.addEventListener('click', async (event) => {
+            if (!event.isTrusted) return;
             event.preventDefault();
             event.stopPropagation();
             if (btn.classList.contains('downloading')) return;
@@ -4560,6 +4571,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             };
 
             pauseBtn.onclick = (event) => {
+                if (!event.isTrusted) return;
                 event.preventDefault();
                 event.stopPropagation();
                 if (recorder.state === 'recording') {
@@ -4574,6 +4586,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
             };
 
             stopBtn.onclick = (event) => {
+                if (!event.isTrusted) return;
                 event.preventDefault();
                 event.stopPropagation();
                 if (recorder.state !== 'inactive') recorder.stop();
@@ -4615,6 +4628,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         frameBtn.dataset.label = '截取单帧';
         frameBtn.title = '截取当前 YouTube 单帧';
         frameBtn.addEventListener('click', async (event) => {
+            if (!event.isTrusted) return;
             event.preventDefault();
             event.stopPropagation();
             if (frameBtn.classList.contains('is-busy')) return;
@@ -4642,6 +4656,7 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         videoBtn.dataset.label = '截取视频';
         videoBtn.title = '录制当前 YouTube 播放器区域视频';
         videoBtn.addEventListener('click', (event) => {
+            if (!event.isTrusted) return;
             event.preventDefault();
             event.stopPropagation();
             startYoutubeVideoRecording(panel);
@@ -5367,7 +5382,8 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         btnStart.style.cssText = makeBtnStyle('linear-gradient(135deg, #ff4444, #cc0000)');
         btnStart.onmouseenter = () => { btnStart.style.transform = 'scale(1.05)'; };
         btnStart.onmouseleave = () => { btnStart.style.transform = 'scale(1)'; };
-        btnStart.onclick = () => {
+        btnStart.onclick = event => {
+            if (!event.isTrusted) return;
             btnBar.remove();
             overlay.remove();
             selectionBox.style.display = 'none';
@@ -5388,7 +5404,8 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         btnReselect.style.backdropFilter = 'blur(8px)';
         btnReselect.onmouseenter = () => { btnReselect.style.transform = 'scale(1.05)'; };
         btnReselect.onmouseleave = () => { btnReselect.style.transform = 'scale(1)'; };
-        btnReselect.onclick = () => {
+        btnReselect.onclick = event => {
+            if (!event.isTrusted) return;
             btnBar.remove();
             cleanupSelector();
             showRecordingRegionSelector(recordingName, recordingTool, false);
@@ -5401,7 +5418,8 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         btnCancel.style.backdropFilter = 'blur(8px)';
         btnCancel.onmouseenter = () => { btnCancel.style.transform = 'scale(1.05)'; };
         btnCancel.onmouseleave = () => { btnCancel.style.transform = 'scale(1)'; };
-        btnCancel.onclick = () => {
+        btnCancel.onclick = event => {
+            if (!event.isTrusted) return;
             btnBar.remove();
             cleanupSelector();
         };
@@ -5670,7 +5688,8 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         btnPause.style.cssText = btnStyle('rgba(255,255,255,0.15)');
         btnPause.onmouseenter = () => { btnPause.style.opacity = '0.8'; };
         btnPause.onmouseleave = () => { btnPause.style.opacity = '1'; };
-        btnPause.onclick = () => {
+        btnPause.onclick = event => {
+            if (!event.isTrusted) return;
             if (!mediaRecorder) return;
             if (isPaused) {
                 mediaRecorder.resume();
@@ -5697,7 +5716,8 @@ console.log('WebCraft 网页工坊内容脚本已加载');
         btnStop.style.cssText = btnStyle('linear-gradient(135deg, #ff4444, #cc0000)');
         btnStop.onmouseenter = () => { btnStop.style.opacity = '0.85'; };
         btnStop.onmouseleave = () => { btnStop.style.opacity = '1'; };
-        btnStop.onclick = () => {
+        btnStop.onclick = event => {
+            if (!event.isTrusted) return;
             stopRecording();
         };
 

@@ -344,35 +344,42 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
 
         getSenderTab(sender, (tab) => {
-            if (!tab?.id) {
-                sendResponse({ success: false, error: '\u6ca1\u6709\u627e\u5230\u5f53\u524d\u6807\u7b7e\u9875' });
+            if (!tab?.id || !tab.active || !Number.isInteger(tab.windowId)) {
+                sendResponse({ success: false, error: '自动截图来源标签页已不在前台' });
                 return;
             }
 
-            const windowId = Number.isInteger(tab.windowId) ? tab.windowId : null;
+            const windowId = tab.windowId;
             chrome.tabs.captureVisibleTab(windowId, { format: 'png' }, (dataUrl) => {
                 if (chrome.runtime.lastError) {
                     sendResponse({ success: false, error: chrome.runtime.lastError.message });
                     return;
                 }
 
-                const { name, format, tool, direction } = request.payload || {};
-                chrome.tabs.sendMessage(tab.id, {
-                    action: 'processImage',
-                    payload: { image: dataUrl, name, format, tool, isFullPage: false }
-                }, async (response) => {
-                    if (chrome.runtime.lastError) {
-                        sendResponse({ success: false, error: chrome.runtime.lastError.message });
+                chrome.tabs.query({ active: true, windowId }, (activeTabs) => {
+                    if (chrome.runtime.lastError || activeTabs[0]?.id !== tab.id) {
+                        sendResponse({ success: false, error: '自动截图期间标签页已切换，请重试' });
                         return;
                     }
 
-                    const keyResult = await dispatchArrowKeyWithDebugger(tab.id, direction === 'left' ? 'left' : 'right');
-                    if (!keyResult.success) {
-                        sendResponse({ success: false, error: keyResult.error || '\u65b9\u5411\u952e\u53d1\u9001\u5931\u8d25', captured: true });
-                        return;
-                    }
+                    const { name, format, tool, direction } = request.payload || {};
+                    chrome.tabs.sendMessage(tab.id, {
+                        action: 'processImage',
+                        payload: { image: dataUrl, name, format, tool, isFullPage: false }
+                    }, async (response) => {
+                        if (chrome.runtime.lastError) {
+                            sendResponse({ success: false, error: chrome.runtime.lastError.message });
+                            return;
+                        }
 
-                    sendResponse(response || { success: true });
+                        const keyResult = await dispatchArrowKeyWithDebugger(tab.id, direction === 'left' ? 'left' : 'right');
+                        if (!keyResult.success) {
+                            sendResponse({ success: false, error: keyResult.error || '\u65b9\u5411\u952e\u53d1\u9001\u5931\u8d25', captured: true });
+                            return;
+                        }
+
+                        sendResponse(response || { success: true });
+                    });
                 });
             });
         });
@@ -388,20 +395,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 sendResponse({ success: false, error: '截图模块已关闭' });
                 return;
             }
-            // 截取当前可视区域
-            chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
-                if (chrome.runtime.lastError) {
-                    console.error("Capture Error:", chrome.runtime.lastError);
-                    sendResponse({ success: false, error: chrome.runtime.lastError.message });
+            getSenderTab(sender, (tab) => {
+                if (!tab?.id || !Number.isInteger(tab.windowId)) {
+                    sendResponse({ success: false, error: '没有找到截图标签页' });
                     return;
                 }
+                // 截取当前可视区域
+                chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' }, (dataUrl) => {
+                    if (chrome.runtime.lastError) {
+                        console.error("Capture Error:", chrome.runtime.lastError);
+                        sendResponse({ success: false, error: chrome.runtime.lastError.message });
+                        return;
+                    }
 
-                const { name, format, tool } = request.payload;
+                    chrome.tabs.query({ active: true, windowId: tab.windowId }, (activeTabs) => {
+                        if (chrome.runtime.lastError || activeTabs[0]?.id !== tab.id) {
+                            sendResponse({ success: false, error: '截图期间标签页已切换，请重试' });
+                            return;
+                        }
 
-                // 发送到content script处理（添加头部信息并下载）
-                chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                    if (tabs[0]) {
-                        chrome.tabs.sendMessage(tabs[0].id, {
+                        const { name, format, tool } = request.payload;
+
+                        // 发送到同一标签页的 content script 处理
+                        chrome.tabs.sendMessage(tab.id, {
                             action: 'processImage',
                             payload: { image: dataUrl, name, format, tool }
                         }, (response) => {
@@ -411,17 +427,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                             }
                             sendResponse(response || { success: true });
                         });
-                    } else {
-                        sendResponse({ success: false, error: '没有找到当前标签页' });
-                    }
+                    });
                 });
             });
         });
         return true;
     } else if (request.action === 'captureTab') {
         // 简单的可视区域截图
-        chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
-            sendResponse(dataUrl);
+        if (!sender.tab?.active || !Number.isInteger(sender.tab.windowId)) {
+            sendResponse(null);
+            return;
+        }
+        chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: 'png' }, (dataUrl) => {
+            if (chrome.runtime.lastError || !dataUrl) return sendResponse(null);
+            chrome.tabs.query({ active: true, windowId: sender.tab.windowId }, (activeTabs) => {
+                sendResponse(chrome.runtime.lastError || activeTabs[0]?.id !== sender.tab.id ? null : dataUrl);
+            });
         });
         return true;
     }
@@ -559,25 +580,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'captureFullPage') {
         const { name, format, tool, overrideMetrics } = request.payload;
 
-        // 获取当前活动标签页
-        chrome.storage.local.get(['screenshotModuleEnabled'], (settings) => {
+        if (!sender.tab?.id) {
+            sendResponse({ success: false, error: '无法确认截图来源标签页' });
+            return;
+        }
+
+        chrome.storage.local.get(['screenshotModuleEnabled'], async (settings) => {
             if (settings.screenshotModuleEnabled === false) {
                 sendResponse({ success: false, error: '截图模块已关闭' });
                 return;
             }
 
-            chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-            if (!tabs[0]) {
-                sendResponse({ success: false, error: '无法获取当前标签页' });
-                return;
-            }
-
             try {
                 // 传递 overrideMetrics
-                const dataUrl = await captureFullPageWithDebugger(tabs[0].id, overrideMetrics);
+                const dataUrl = await captureFullPageWithDebugger(sender.tab.id, overrideMetrics);
 
                 // 发送截图数据到 content script 处理
-                chrome.tabs.sendMessage(tabs[0].id, {
+                chrome.tabs.sendMessage(sender.tab.id, {
                     action: 'processFullPageImage',
                     payload: {
                         image: dataUrl,
@@ -597,7 +616,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 sendResponse({ success: false, error: error.message });
             }
         });
-        });
 
         return true; // 保持消息通道开放
     }
@@ -613,12 +631,14 @@ chrome.commands.onCommand.addListener((command) => {
             const format = result.format || 'jpg';
             const tool = result.tool || 'Midjourney生成';
 
-            chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
-                if (chrome.runtime.lastError) return;
-
-                chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                    if (tabs[0]) {
-                        chrome.tabs.sendMessage(tabs[0].id, {
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                const tab = tabs[0];
+                if (chrome.runtime.lastError || !tab?.id || !Number.isInteger(tab.windowId)) return;
+                chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' }, (dataUrl) => {
+                    if (chrome.runtime.lastError || !dataUrl) return;
+                    chrome.tabs.query({ active: true, windowId: tab.windowId }, (activeTabs) => {
+                        if (chrome.runtime.lastError || activeTabs[0]?.id !== tab.id) return;
+                        chrome.tabs.sendMessage(tab.id, {
                             action: 'processImage',
                             payload: {
                                 image: dataUrl,
@@ -632,7 +652,7 @@ chrome.commands.onCommand.addListener((command) => {
                                 console.error("Shortcut Msg Error: ", chrome.runtime.lastError);
                             }
                         });
-                    }
+                    });
                 });
             });
         });
@@ -737,13 +757,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 return;
             }
 
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (!tabs[0]) {
-                sendResponse({ success: false, error: '无法获取当前标签页' });
+            if (!sender.tab?.active || !sender.tab?.id) {
+                sendResponse({ success: false, error: '录屏来源标签页已不在前台' });
                 return;
             }
 
-            const tabId = tabs[0].id;
+            const tabId = sender.tab.id;
 
             chrome.tabCapture.getMediaStreamId({ targetTabId: tabId, consumerTabId: tabId }, (streamId) => {
                 if (chrome.runtime.lastError) {
@@ -765,7 +784,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     }
                 });
             });
-        });
         });
 
         return true; // 保持消息通道开放

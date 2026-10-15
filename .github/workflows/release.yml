@@ -15,7 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Verify tag matches manifest version
         run: |
@@ -40,6 +42,11 @@ jobs:
           test -f options.js
           test -f options.css
           test -f jspdf.umd.min.js
+          test -f collector-frame.html
+          test -f collector-frame.js
+          test -f translator-frame.html
+          test -f translator-frame.js
+          test -f panel-frame.css
           test -f icons/icon16.png
           test -f icons/icon48.png
           test -f icons/icon128.png
@@ -48,6 +55,10 @@ jobs:
           node --check content.js
           node --check popup.js
           node --check options.js
+          node --check collector-frame.js
+          node --check translator-frame.js
+          node tests/extension-behavior.test.js
+          node tests/security-behavior.test.js
 
       - name: Scan packaged source for secrets
         shell: pwsh
@@ -62,6 +73,11 @@ jobs:
             'options.html',
             'options.js',
             'options.css',
+            'collector-frame.html',
+            'collector-frame.js',
+            'translator-frame.html',
+            'translator-frame.js',
+            'panel-frame.css',
             'README.md',
             'LICENSE'
           )
@@ -89,18 +105,23 @@ jobs:
             'options.js',
             'options.css',
             'jspdf.umd.min.js',
+            'collector-frame.html',
+            'collector-frame.js',
+            'translator-frame.html',
+            'translator-frame.js',
+            'panel-frame.css',
             'icons'
           )
           Compress-Archive -Path $files -DestinationPath $zip -CompressionLevel Optimal
           "ZIP_NAME=$zip" >> $env:GITHUB_ENV
 
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
           subject-path: ${{ env.ZIP_NAME }}
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           files: ${{ env.ZIP_NAME }}
           generate_release_notes: true

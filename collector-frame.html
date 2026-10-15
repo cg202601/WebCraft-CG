@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WebCraft 采集画布</title>
+  <link rel="stylesheet" href="panel-frame.css">
+</head>
+<body class="collector-frame">
+  <header class="panel-header">
+    <strong>采集画布 <span id="itemCount">0</span></strong>
+    <button id="closePanel" type="button" aria-label="关闭">×</button>
+  </header>
+  <div class="collector-toolbar">
+    <div class="actions">
+      <button id="savePage" type="button" class="primary">存网页</button>
+      <button id="downloadImages" type="button">导出图片</button>
+      <button id="exportMarkdown" type="button">导出 MD</button>
+      <button id="copyMarkdown" type="button">复制全部</button>
+      <button id="exportJson" type="button">导出 JSON</button>
+      <button id="importJsonButton" type="button">导入 JSON</button>
+      <button id="dedupeItems" type="button">去重</button>
+      <button id="clearItems" type="button">清空</button>
+    </div>
+    <div class="collector-filters">
+      <input id="searchItems" type="search" placeholder="搜索文字、链接、来源..." aria-label="搜索采集内容">
+      <select id="typeFilter" aria-label="筛选类型">
+        <option value="all">全部</option>
+        <option value="text">文字</option>
+        <option value="image">图片</option>
+        <option value="page">网页</option>
+        <option value="link">链接</option>
+      </select>
+    </div>
+    <button id="pasteImages" type="button">粘贴剪贴板图片</button>
+    <input id="importJson" type="file" accept="application/json,.json" hidden>
+  </div>
+  <main id="itemList" class="collector-list"></main>
+  <footer class="collector-footer" id="status" role="status">画布内容仅显示在扩展页面中。</footer>
+  <script src="collector-frame.js"></script>
+</body>
+</html>
